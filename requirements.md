@@ -12,6 +12,7 @@ Create a task management system application which is clone of trello, asana, etc
 - **Database**: PostgreSQL with SQLAlchemy ORM
 - **Authentication**: JWT tokens
 - **API**: REST API with OpenAPI/Swagger docs
+- **Package manager**: uv
 
 ### Frontend (wms-front):
 - **Framework**: React with TypeScript
