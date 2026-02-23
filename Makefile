@@ -5,7 +5,7 @@ GREEN = \033[0;32m
 YELLOW = \033[1;33m
 NC = \033[0m # No Color
 
-.PHONY: help install install-backend install-frontend run start-backend start-frontend stop clean test
+.PHONY: help install install-backend install-frontend run start-backend start-frontend stop clean test test-cov
 
 help:
 	@echo "$(GREEN)WMS Project Makefile$(NC)"
@@ -17,6 +17,8 @@ help:
 	@echo "  make start-frontend   - Start only the frontend dev server"
 	@echo "  make stop             - Stop all running servers"
 	@echo "  make clean            - Clean up database and cache files"
+	@echo "  make test             - Run backend tests"
+	@echo "  make test-cov         - Run backend tests with coverage report"
 	@echo ""
 
 install: install-backend install-frontend
@@ -65,3 +67,8 @@ test:
 	@echo "$(YELLOW)Running backend tests...$(NC)"
 	cd wms-core && uv run pytest -v
 	@echo "$(GREEN)Tests complete!$(NC)"
+
+test-cov:
+	@echo "$(YELLOW)Running backend tests with coverage...$(NC)"
+	cd wms-core && uv run pytest --cov --cov-report=term-missing -v
+	@echo "$(GREEN)Tests with coverage complete!$(NC)"
