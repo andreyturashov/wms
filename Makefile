@@ -5,7 +5,7 @@ GREEN = \033[0;32m
 YELLOW = \033[1;33m
 NC = \033[0m # No Color
 
-.PHONY: help install install-backend install-frontend run start-backend start-frontend stop clean
+.PHONY: help install install-backend install-frontend run start-backend start-frontend stop clean test
 
 help:
 	@echo "$(GREEN)WMS Project Makefile$(NC)"
@@ -60,3 +60,8 @@ clean:
 	rm -rf wms-core/__pycache__ wms-core/app/__pycache__ wms-core/app/**/__pycache__
 	rm -rf wms-core/.pytest_cache
 	@echo "$(GREEN)Clean complete!$(NC)"
+
+test:
+	@echo "$(YELLOW)Running backend tests...$(NC)"
+	cd wms-core && uv run pytest -v
+	@echo "$(GREEN)Tests complete!$(NC)"
