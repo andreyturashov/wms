@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import type { Task } from '../types';
+import { useEffect, useRef, useState } from 'react';
+import type { Agent, Task } from '../types';
 import { tasksApi } from '../api';
 
 interface TaskCardProps {
   task: Task;
+  agents: Agent[];
   onUpdate: (task: Task) => void;
   onDelete: (id: string) => void;
 }
@@ -14,10 +15,43 @@ const priorityColors = {
   high: 'bg-red-100 text-red-800',
 };
 
-export function TaskCard({ task, onUpdate, onDelete }: TaskCardProps) {
+export function TaskCard({ task, agents, onUpdate, onDelete }: TaskCardProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Edit form state
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editDescription, setEditDescription] = useState(task.description);
+  const [editPriority, setEditPriority] = useState<Task['priority']>(task.priority);
+  const [editAgentId, setEditAgentId] = useState<Task['agent_id']>(task.agent_id);
+  const [editDueDate, setEditDueDate] = useState(task.due_date ?? '');
+
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync form state when task prop changes (e.g. after drag-and-drop status update)
+  useEffect(() => {
+    if (!isEditing) {
+      setEditTitle(task.title);
+      setEditDescription(task.description);
+      setEditPriority(task.priority);
+      setEditAgentId(task.agent_id);
+      setEditDueDate(task.due_date ?? '');
+    }
+  }, [task, isEditing]);
+
+  // Focus title input when entering edit mode
+  useEffect(() => {
+    if (isEditing) {
+      titleInputRef.current?.focus();
+    }
+  }, [isEditing]);
 
   const handleDragStart = (e: React.DragEvent) => {
+    if (isEditing) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('taskId', task.id);
     setIsDragging(true);
   };
@@ -33,26 +67,172 @@ export function TaskCard({ task, onUpdate, onDelete }: TaskCardProps) {
     }
   };
 
+  const startEditing = () => {
+    setEditTitle(task.title);
+    setEditDescription(task.description);
+    setEditPriority(task.priority);
+    setEditAgentId(task.agent_id);
+    setEditDueDate(task.due_date ?? '');
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+  };
+
+  const saveEditing = async () => {
+    if (!editTitle.trim()) return;
+    setSaving(true);
+    try {
+      const updatedTask = await tasksApi.update(task.id, {
+        title: editTitle.trim(),
+        description: editDescription,
+        priority: editPriority,
+        agent_id: editAgentId,
+        due_date: editDueDate || null,
+      });
+      onUpdate(updatedTask);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save task:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      cancelEditing();
+    }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      void saveEditing();
+    }
+  };
+
+  const assignedAgent = task.agent_id
+    ? agents.find((agent) => agent.id === task.agent_id) ?? null
+    : null;
+
+  // --- Edit mode ---
+  if (isEditing) {
+    return (
+      <div
+        className="bg-white rounded-lg shadow-lg ring-2 ring-blue-400 p-3 mb-2"
+        onKeyDown={handleKeyDown}
+      >
+        {/* Title */}
+        <input
+          ref={titleInputRef}
+          type="text"
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          placeholder="Task title"
+          className="w-full font-semibold text-gray-800 text-sm px-2 py-1 border border-gray-300 rounded-md mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+
+        {/* Description */}
+        <textarea
+          value={editDescription}
+          onChange={(e) => setEditDescription(e.target.value)}
+          placeholder="Description (optional)"
+          rows={2}
+          className="w-full text-gray-600 text-xs px-2 py-1 border border-gray-300 rounded-md mb-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+
+        {/* Priority & Due Date row */}
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <select
+            value={editPriority}
+            onChange={(e) => setEditPriority(e.target.value as Task['priority'])}
+            className="px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+          <input
+            type="date"
+            value={editDueDate}
+            onChange={(e) => setEditDueDate(e.target.value)}
+            className="px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Agent */}
+        <select
+          value={editAgentId ?? ''}
+          onChange={(e) => setEditAgentId((e.target.value || null) as Task['agent_id'])}
+          className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Unassigned</option>
+          {agents.map((agent) => (
+            <option key={agent.id} value={agent.id}>
+              {agent.name}
+            </option>
+          ))}
+        </select>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={cancelEditing}
+            disabled={saving}
+            className="px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => void saveEditing()}
+            disabled={saving || !editTitle.trim()}
+            className="px-2 py-1 text-xs text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+        <p className="text-[10px] text-gray-400 mt-1 text-right">⌘+Enter to save · Esc to cancel</p>
+      </div>
+    );
+  }
+
+  // --- View mode ---
   return (
     <div
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDoubleClick={startEditing}
       className={`bg-white rounded-lg shadow-md p-3 mb-2 cursor-move hover:shadow-lg transition-shadow ${
         isDragging ? 'opacity-50' : ''
       }`}
     >
       <div className="flex justify-between items-start mb-2">
         <h3 className="font-semibold text-gray-800 text-sm">{task.title}</h3>
-        <button
-          onClick={handleDelete}
-          className="text-gray-400 hover:text-red-500 text-xs"
-        >
-          ✕
-        </button>
+        <div className="flex gap-1">
+          <button
+            onClick={startEditing}
+            className="text-gray-400 hover:text-blue-500 text-xs"
+            title="Edit task"
+          >
+            ✎
+          </button>
+          <button
+            onClick={handleDelete}
+            className="text-gray-400 hover:text-red-500 text-xs"
+            title="Delete task"
+          >
+            ✕
+          </button>
+        </div>
       </div>
       {task.description && (
         <p className="text-gray-600 text-xs mb-2 line-clamp-2">{task.description}</p>
+      )}
+      {assignedAgent && (
+        <div className="mb-2">
+          <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-800">
+            {assignedAgent.name}
+          </span>
+        </div>
       )}
       <div className="flex justify-between items-center">
         <span

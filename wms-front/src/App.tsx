@@ -1,99 +1,97 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Column, TaskModal } from './components';
-import { tasksApi, authApi } from './api';
-import type { Task, CreateTaskRequest, LoginRequest, RegisterRequest } from './types';
+import { tasksApi, authApi, agentsApi } from './api';
+import type { Task, CreateTaskRequest, LoginRequest, RegisterRequest, Agent } from './types';
 
 function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      checkAuth();
-    } else {
-      setLoading(false);
-    }
+  const loadTasks = useCallback(async () => {
+    const data = await tasksApi.getAll();
+    setTasks(data);
   }, []);
 
-  const checkAuth = async () => {
-    try {
-      await authApi.me();
-      setIsAuthenticated(true);
-      loadTasks();
-    } catch {
-      authApi.logout();
-      setLoading(false);
-    }
-  };
+  const loadAgents = useCallback(async () => {
+    const data = await agentsApi.getAll(true);
+    setAgents(data);
+  }, []);
 
-  const loadTasks = async () => {
-    try {
-      const data = await tasksApi.getAll();
-      setTasks(data);
-    } catch (error) {
-      console.error('Failed to load tasks:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const initialize = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        await authApi.me();
+        setIsAuthenticated(true);
+        await Promise.all([loadTasks(), loadAgents()]);
+      } catch {
+        authApi.logout();
+        setIsAuthenticated(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void initialize();
+  }, [loadTasks, loadAgents]);
 
   const handleCreateTask = async (data: CreateTaskRequest) => {
+    setErrorMessage(null);
     try {
       const newTask = await tasksApi.create(data);
-      setTasks([...tasks, newTask]);
+      setTasks((prev) => [...prev, newTask]);
     } catch (error) {
       console.error('Failed to create task:', error);
-      alert('Failed to create task. Make sure the backend is running.');
+      setErrorMessage('Failed to create task. Please try again.');
     }
   };
 
-  const handleUpdateTask = async (task: Task) => {
-    try {
-      const updated = await tasksApi.update(task.id, task);
-      setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
-    } catch (error) {
-      console.error('Failed to update task:', error);
-    }
+  const handleUpdateTask = (updatedTask: Task) => {
+    setTasks((prev) => prev.map((item) => (item.id === updatedTask.id ? updatedTask : item)));
   };
 
-  const handleDeleteTask = async (id: string) => {
-    try {
-      await tasksApi.delete(id);
-      setTasks(tasks.filter((t) => t.id !== id));
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-    }
+  const handleDeleteTask = (id: string) => {
+    setTasks((prev) => prev.filter((task) => task.id !== id));
   };
 
   const handleStatusChange = async (taskId: string, newStatus: Task['status']) => {
+    setErrorMessage(null);
     try {
       const updated = await tasksApi.updateStatus(taskId, newStatus);
-      setTasks(tasks.map((t) => (t.id === taskId ? updated : t)));
+      setTasks((prev) => prev.map((task) => (task.id === taskId ? updated : task)));
     } catch (error) {
       console.error('Failed to update task status:', error);
+      setErrorMessage('Failed to update task status. Please try again.');
     }
   };
 
-  const handleAuth = async (data: LoginRequest | RegisterRequest, isLogin: boolean) => {
+  const handleAuth = async (data: LoginRequest | RegisterRequest, isSignInMode: boolean) => {
+    setErrorMessage(null);
     try {
-      if (isLogin) {
+      if (isSignInMode) {
         await authApi.login(data as LoginRequest);
       } else {
         await authApi.register(data as RegisterRequest);
-        await authApi.login({ email: data.email, password: data.password });
       }
+
       setIsAuthenticated(true);
       setIsAuthModalOpen(false);
-      loadTasks();
+      await Promise.all([loadTasks(), loadAgents()]);
     } catch (error) {
       console.error('Auth failed:', error);
-      alert('Authentication failed. Please check your credentials.');
+      setErrorMessage('Authentication failed. Please check your credentials.');
     }
   };
 
@@ -101,6 +99,11 @@ function App() {
     authApi.logout();
     setIsAuthenticated(false);
     setTasks([]);
+    setAgents([]);
+    setErrorMessage(null);
+    setIsAuthModalOpen(false);
+    setIsModalOpen(false);
+    setEditingTask(null);
   };
 
   const todoTasks = tasks.filter((t) => t.status === 'todo');
@@ -121,6 +124,9 @@ function App() {
         <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
           <h1 className="text-2xl font-bold mb-6 text-center">WMS Task Manager</h1>
           <p className="text-gray-600 mb-6 text-center">Sign in to manage your tasks</p>
+          {errorMessage && (
+            <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
+          )}
           <button
             onClick={() => setIsAuthModalOpen(true)}
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700"
@@ -166,11 +172,15 @@ function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
+        {errorMessage && (
+          <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
+        )}
         <div className="flex gap-4 overflow-x-auto pb-4">
           <Column
             title="To Do"
             status="todo"
             tasks={todoTasks}
+            agents={agents}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
             onDrop={handleStatusChange}
@@ -179,6 +189,7 @@ function App() {
             title="In Progress"
             status="in_progress"
             tasks={inProgressTasks}
+            agents={agents}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
             onDrop={handleStatusChange}
@@ -187,6 +198,7 @@ function App() {
             title="Done"
             status="done"
             tasks={doneTasks}
+            agents={agents}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
             onDrop={handleStatusChange}
@@ -199,6 +211,7 @@ function App() {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreateTask}
         task={editingTask}
+        agents={agents}
       />
     </div>
   );
@@ -211,7 +224,7 @@ function AuthModal({
   onClose,
 }: {
   isLogin: boolean;
-  onSubmit: (data: LoginRequest | RegisterRequest) => void;
+  onSubmit: (data: LoginRequest | RegisterRequest) => Promise<void>;
   onSwitch: () => void;
   onClose: () => void;
 }) {
@@ -219,12 +232,12 @@ function AuthModal({
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLogin) {
-      onSubmit({ email, password });
+      await onSubmit({ email, password });
     } else {
-      onSubmit({ email, password, username });
+      await onSubmit({ email, password, username });
     }
   };
 

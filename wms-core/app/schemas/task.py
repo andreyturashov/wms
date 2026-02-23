@@ -1,13 +1,19 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
+
+
+TaskStatus = Literal["todo", "in_progress", "done"]
+TaskPriority = Literal["low", "medium", "high"]
 
 
 class TaskBase(BaseModel):
     title: str
     description: str = ""
-    status: str = "todo"
-    priority: str = "medium"
+    status: TaskStatus = "todo"
+    priority: TaskPriority = "medium"
+    agent_id: Optional[str] = None
+    assigned_agent: Optional[str] = None
     due_date: Optional[str] = None
 
 
@@ -18,9 +24,20 @@ class TaskCreate(TaskBase):
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    status: Optional[str] = None
-    priority: Optional[str] = None
+    status: Optional[TaskStatus] = None
+    priority: Optional[TaskPriority] = None
+    agent_id: Optional[str] = None
+    assigned_agent: Optional[str] = None
     due_date: Optional[str] = None
+
+
+class TaskStatusUpdate(BaseModel):
+    status: TaskStatus
+
+
+class TaskAssignmentUpdate(BaseModel):
+    agent_id: Optional[str] = None
+    assigned_agent: Optional[str] = None
 
 
 class TaskResponse(TaskBase):
