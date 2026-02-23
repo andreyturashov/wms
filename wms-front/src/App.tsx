@@ -58,26 +58,12 @@ function App() {
     }
   };
 
-  const handleUpdateTask = async (task: Task) => {
-    setErrorMessage(null);
-    try {
-      const updated = await tasksApi.update(task.id, task);
-      setTasks((prev) => prev.map((item) => (item.id === task.id ? updated : item)));
-    } catch (error) {
-      console.error('Failed to update task:', error);
-      setErrorMessage('Failed to update task. Please try again.');
-    }
+  const handleUpdateTask = (updatedTask: Task) => {
+    setTasks((prev) => prev.map((item) => (item.id === updatedTask.id ? updatedTask : item)));
   };
 
-  const handleDeleteTask = async (id: string) => {
-    setErrorMessage(null);
-    try {
-      await tasksApi.delete(id);
-      setTasks((prev) => prev.filter((task) => task.id !== id));
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-      setErrorMessage('Failed to delete task. Please try again.');
-    }
+  const handleDeleteTask = (id: string) => {
+    setTasks((prev) => prev.filter((task) => task.id !== id));
   };
 
   const handleStatusChange = async (taskId: string, newStatus: Task['status']) => {
