@@ -1,22 +1,35 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import models BEFORE creating tables to ensure they are registered with Base
-from app.models.user import User
-from app.models.task import Task
+from app.models import user, task
 from app.api import auth, tasks
+from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+_ = (user, task)
 
-app = FastAPI(title="WMS API")
+
+async def create_tables():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    await create_tables()
+    yield
+
+
+app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG, lifespan=lifespan)
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

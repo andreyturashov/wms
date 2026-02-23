@@ -1,21 +1,25 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     APP_NAME: str = "WMS API"
-    DEBUG: bool = True
-    
+    DEBUG: bool = False
+
     # Database
-    DATABASE_URL: str = "sqlite:///./wms.db"
-    
+    DATABASE_URL: str = "sqlite+aiosqlite:///./wms.db"
+
     # JWT
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30 * 24 * 60  # 30 days
-    
-    class Config:
-        env_file = ".env"
+
+    # API
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 settings = Settings()
