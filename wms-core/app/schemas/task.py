@@ -12,6 +12,8 @@ class TaskBase(BaseModel):
     description: str = ""
     status: TaskStatus = "todo"
     priority: TaskPriority = "medium"
+    agent_id: Optional[str] = None
+    assigned_agent: Optional[str] = None
     due_date: Optional[str] = None
 
 
@@ -24,11 +26,18 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     status: Optional[TaskStatus] = None
     priority: Optional[TaskPriority] = None
+    agent_id: Optional[str] = None
+    assigned_agent: Optional[str] = None
     due_date: Optional[str] = None
 
 
 class TaskStatusUpdate(BaseModel):
     status: TaskStatus
+
+
+class TaskAssignmentUpdate(BaseModel):
+    agent_id: Optional[str] = None
+    assigned_agent: Optional[str] = None
 
 
 class TaskResponse(TaskBase):

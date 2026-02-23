@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react';
-import type { Task, CreateTaskRequest } from '../types';
+import type { Agent, Task, CreateTaskRequest } from '../types';
 
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: CreateTaskRequest) => void;
   task?: Task | null;
+  agents: Agent[];
 }
 
-export function TaskModal({ isOpen, onClose, onSubmit, task }: TaskModalProps) {
+export function TaskModal({ isOpen, onClose, onSubmit, task, agents }: TaskModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<Task['status']>('todo');
   const [priority, setPriority] = useState<Task['priority']>('medium');
+  const [assignedAgentId, setAssignedAgentId] = useState<Task['agent_id']>(null);
   const [dueDate, setDueDate] = useState('');
 
   useEffect(() => {
@@ -21,12 +23,14 @@ export function TaskModal({ isOpen, onClose, onSubmit, task }: TaskModalProps) {
       setDescription(task.description);
       setStatus(task.status);
       setPriority(task.priority);
+      setAssignedAgentId(task.agent_id);
       setDueDate(task.due_date || '');
     } else {
       setTitle('');
       setDescription('');
       setStatus('todo');
       setPriority('medium');
+      setAssignedAgentId(null);
       setDueDate('');
     }
   }, [task, isOpen]);
@@ -38,6 +42,7 @@ export function TaskModal({ isOpen, onClose, onSubmit, task }: TaskModalProps) {
       description,
       status,
       priority,
+      agent_id: assignedAgentId,
       due_date: dueDate || null,
     });
     onClose();
@@ -94,6 +99,21 @@ export function TaskModal({ isOpen, onClose, onSubmit, task }: TaskModalProps) {
                 <option value="high">High</option>
               </select>
             </div>
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Agent</label>
+            <select
+              value={assignedAgentId ?? ''}
+              onChange={(e) => setAssignedAgentId((e.target.value || null) as Task['agent_id'])}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Unassigned</option>
+              {agents.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>

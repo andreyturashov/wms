@@ -1,6 +1,6 @@
 // Real API - connects to FastAPI backend
 
-import type { Task, CreateTaskRequest, UpdateTaskRequest, AuthResponse, LoginRequest, RegisterRequest, User } from '../types';
+import type { Task, CreateTaskRequest, UpdateTaskRequest, AuthResponse, LoginRequest, RegisterRequest, User, Agent } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 const TOKEN_STORAGE_KEY = 'token';
@@ -137,6 +137,14 @@ export const tasksApi = {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify({ status }),
+    });
+  },
+};
+
+export const agentsApi = {
+  getAll: async (activeOnly = true): Promise<Agent[]> => {
+    return request<Agent[]>(`${API_BASE_URL}/agents?active_only=${activeOnly}`, {
+      headers: getHeaders(),
     });
   },
 };

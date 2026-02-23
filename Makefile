@@ -5,18 +5,18 @@ GREEN = \033[0;32m
 YELLOW = \033[1;33m
 NC = \033[0m # No Color
 
-.PHONY: help install install-backend install-frontend start start-backend start-frontend stop clean
+.PHONY: help install install-backend install-frontend run start-backend start-frontend stop clean
 
 help:
 	@echo "$(GREEN)WMS Project Makefile$(NC)"
 	@echo ""
 	@echo "Available commands:"
 	@echo "  make install          - Install all dependencies (backend + frontend)"
-	@echo "  make start           - Start both backend and frontend"
-	@echo "  make start-backend   - Start only the backend server"
-	@echo "  make start-frontend  - Start only the frontend dev server"
-	@echo "  make stop            - Stop all running servers"
-	@echo "  make clean           - Clean up database and cache files"
+	@echo "  make run              - Start both backend and frontend"
+	@echo "  make start-backend    - Start only the backend server"
+	@echo "  make start-frontend   - Start only the frontend dev server"
+	@echo "  make stop             - Stop all running servers"
+	@echo "  make clean            - Clean up database and cache files"
 	@echo ""
 
 install: install-backend install-frontend
@@ -30,7 +30,7 @@ install-frontend:
 	@echo "$(YELLOW)Installing frontend dependencies...$(NC)"
 	cd wms-front && yarn install
 
-start: start-backend start-frontend
+run: start-backend start-frontend
 	@echo "$(GREEN)WMS started!$(NC)"
 	@echo "  Backend: http://localhost:8000"
 	@echo "  Frontend: http://localhost:5173"
