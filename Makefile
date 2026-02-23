@@ -65,10 +65,10 @@ clean:
 
 test:
 	@echo "$(YELLOW)Running backend tests...$(NC)"
-	cd wms-core && uv run pytest -v
+	cd wms-core && uv run pytest -n auto -v
 	@echo "$(GREEN)Tests complete!$(NC)"
 
 test-cov:
 	@echo "$(YELLOW)Running backend tests with coverage...$(NC)"
-	cd wms-core && uv run pytest --cov --cov-report=term-missing -v
+	cd wms-core && uv run pytest -n auto --cov --cov-report=term-missing -v
 	@echo "$(GREEN)Tests with coverage complete!$(NC)"
