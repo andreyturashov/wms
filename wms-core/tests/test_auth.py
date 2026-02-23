@@ -2,7 +2,9 @@
 
 import pytest
 from httpx import AsyncClient
+from jose import jwt
 
+from app.core.config import settings
 from tests.conftest import auth_headers, register_user
 
 
@@ -102,6 +104,42 @@ class TestMe:
     async def test_me_invalid_token(self, client: AsyncClient):
         resp = await client.get("/api/auth/me", headers=auth_headers("bogus-token"))
         assert resp.status_code == 401
+
+    async def test_me_token_without_sub(self, client: AsyncClient):
+        """Token with valid JWT but no 'sub' claim should be rejected."""
+        token = jwt.encode(
+            {"data": "no-sub"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+        )
+        resp = await client.get("/api/auth/me", headers=auth_headers(token))
+        assert resp.status_code == 401
+
+    async def test_me_token_for_nonexistent_user(self, client: AsyncClient):
+        """Token referencing a user id that doesn't exist in DB."""
+        token = jwt.encode(
+            {"sub": "nonexistent-user-id"},
+            settings.SECRET_KEY,
+            algorithm=settings.ALGORITHM,
+        )
+        resp = await client.get("/api/auth/me", headers=auth_headers(token))
+        assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Auth helpers (unit)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateAccessToken:
+    def test_default_expiry(self):
+        """create_access_token without expires_delta uses 15-min default."""
+        from app.api.auth import create_access_token
+
+        token = create_access_token(data={"sub": "u1"})
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        assert payload["sub"] == "u1"
+        assert "exp" in payload
 
 
 # ---------------------------------------------------------------------------

@@ -95,6 +95,15 @@ class TestCreateTask:
         )
         assert resp.status_code == 422
 
+    async def test_create_task_invalid_agent_key(self, authed_client: AsyncClient):
+        """assigned_agent with a key that doesn't exist should 400."""
+        resp = await authed_client.post(
+            "/api/tasks",
+            json={**TASK_PAYLOAD, "assigned_agent": "nonexistent_agent_key"},
+        )
+        assert resp.status_code == 400
+        assert "invalid agent key" in resp.json()["detail"].lower()
+
 
 # ---------------------------------------------------------------------------
 # GET /api/tasks  (list)
