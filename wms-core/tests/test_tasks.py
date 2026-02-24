@@ -385,3 +385,198 @@ class TestAssignAgent:
             "/api/tasks/nonexistent/assign", json={"agent_id": None}
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# User assignment tests
+# ---------------------------------------------------------------------------
+
+
+class TestUserAssignment:
+    """Tests for assigning tasks to users (assigned_user_id)."""
+
+    async def test_create_task_with_assigned_user(self, client: AsyncClient):
+        data = await register_user(client, email="creator@x.com", username="creator")
+        headers = auth_headers(data["access_token"])
+        user_id = data["user"]["id"]
+
+        resp = await client.post(
+            "/api/tasks",
+            json={**TASK_PAYLOAD, "assigned_user_id": user_id},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["assigned_user_id"] == user_id
+        assert body["assigned_username"] == "creator"
+        assert body["agent_id"] is None
+
+    async def test_create_task_user_overrides_agent(self, client: AsyncClient):
+        """When both assigned_user_id and agent_id are set, user wins."""
+        data = await register_user(client, email="both@x.com", username="both")
+        headers = auth_headers(data["access_token"])
+        user_id = data["user"]["id"]
+
+        # Get an agent id
+        resp = await client.get("/api/agents", headers=headers)
+        agent_id = resp.json()[0]["id"]
+
+        resp = await client.post(
+            "/api/tasks",
+            json={
+                **TASK_PAYLOAD,
+                "assigned_user_id": user_id,
+                "agent_id": agent_id,
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["assigned_user_id"] == user_id
+        assert body["agent_id"] is None
+
+    async def test_create_task_invalid_user_id(self, authed_client: AsyncClient):
+        resp = await authed_client.post(
+            "/api/tasks",
+            json={**TASK_PAYLOAD, "assigned_user_id": "nonexistent-user"},
+        )
+        assert resp.status_code == 400
+        assert "invalid user id" in resp.json()["detail"].lower()
+
+    async def test_update_assign_user(self, client: AsyncClient):
+        data = await register_user(client, email="upd@x.com", username="updater")
+        headers = auth_headers(data["access_token"])
+        user_id = data["user"]["id"]
+
+        resp = await client.post("/api/tasks", json=TASK_PAYLOAD, headers=headers)
+        task_id = resp.json()["id"]
+
+        resp = await client.put(
+            f"/api/tasks/{task_id}",
+            json={"assigned_user_id": user_id},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["assigned_user_id"] == user_id
+        assert body["assigned_username"] == "updater"
+
+    async def test_update_user_clears_agent(self, client: AsyncClient):
+        """Assigning a user via update should clear agent."""
+        data = await register_user(client, email="clr@x.com", username="clearer")
+        headers = auth_headers(data["access_token"])
+        user_id = data["user"]["id"]
+
+        # Create task with agent
+        resp = await client.get("/api/agents", headers=headers)
+        agent_id = resp.json()[0]["id"]
+        resp = await client.post(
+            "/api/tasks",
+            json={**TASK_PAYLOAD, "agent_id": agent_id},
+            headers=headers,
+        )
+        task_id = resp.json()["id"]
+
+        # Update to assign user
+        resp = await client.put(
+            f"/api/tasks/{task_id}",
+            json={"assigned_user_id": user_id},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["assigned_user_id"] == user_id
+        assert body["agent_id"] is None
+
+    async def test_update_agent_clears_user(self, client: AsyncClient):
+        """Assigning an agent via update should clear assigned user."""
+        data = await register_user(client, email="acl@x.com", username="aclearer")
+        headers = auth_headers(data["access_token"])
+        user_id = data["user"]["id"]
+
+        # Create task with user
+        resp = await client.post(
+            "/api/tasks",
+            json={**TASK_PAYLOAD, "assigned_user_id": user_id},
+            headers=headers,
+        )
+        task_id = resp.json()["id"]
+
+        # Update to assign agent
+        resp = await client.get("/api/agents", headers=headers)
+        agent_id = resp.json()[0]["id"]
+        resp = await client.put(
+            f"/api/tasks/{task_id}",
+            json={"agent_id": agent_id},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["agent_id"] == agent_id
+        assert body["assigned_user_id"] is None
+
+    async def test_assign_endpoint_user(self, client: AsyncClient):
+        """PUT /assign with assigned_user_id."""
+        data = await register_user(client, email="asg@x.com", username="assigner")
+        headers = auth_headers(data["access_token"])
+        user_id = data["user"]["id"]
+
+        resp = await client.post("/api/tasks", json=TASK_PAYLOAD, headers=headers)
+        task_id = resp.json()["id"]
+
+        resp = await client.put(
+            f"/api/tasks/{task_id}/assign",
+            json={"assigned_user_id": user_id},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["assigned_user_id"] == user_id
+        assert body["agent_id"] is None
+
+    async def test_assign_endpoint_user_clears_agent(self, client: AsyncClient):
+        """Assigning user via /assign endpoint should clear agent."""
+        data = await register_user(client, email="auclr@x.com", username="auclr")
+        headers = auth_headers(data["access_token"])
+        user_id = data["user"]["id"]
+
+        resp = await client.get("/api/agents", headers=headers)
+        agent_id = resp.json()[0]["id"]
+
+        resp = await client.post(
+            "/api/tasks",
+            json={**TASK_PAYLOAD, "agent_id": agent_id},
+            headers=headers,
+        )
+        task_id = resp.json()["id"]
+
+        resp = await client.put(
+            f"/api/tasks/{task_id}/assign",
+            json={"assigned_user_id": user_id},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["assigned_user_id"] == user_id
+        assert body["agent_id"] is None
+
+    async def test_unassign_user(self, client: AsyncClient):
+        data = await register_user(client, email="unx@x.com", username="unassigner")
+        headers = auth_headers(data["access_token"])
+        user_id = data["user"]["id"]
+
+        resp = await client.post(
+            "/api/tasks",
+            json={**TASK_PAYLOAD, "assigned_user_id": user_id},
+            headers=headers,
+        )
+        task_id = resp.json()["id"]
+
+        resp = await client.put(
+            f"/api/tasks/{task_id}",
+            json={"assigned_user_id": None},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["assigned_user_id"] is None
+        assert resp.json()["assigned_username"] is None

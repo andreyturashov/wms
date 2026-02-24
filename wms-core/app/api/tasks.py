@@ -48,6 +48,20 @@ async def resolve_agent_by_key(
     return agent
 
 
+async def resolve_user_by_id(
+    user_id: str | None,
+    db: AsyncSession,
+) -> User | None:
+    if user_id is None:
+        return None
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid user id")
+    return user
+
+
 @router.get("", response_model=List[TaskResponse])
 async def get_tasks(
     current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
@@ -82,6 +96,12 @@ async def create_task(
     if not agent:
         agent = await resolve_agent_by_key(task.assigned_agent, db)
 
+    assigned_user = await resolve_user_by_id(task.assigned_user_id, db)
+
+    # Mutually exclusive: if user is set clear agent, and vice-versa
+    if assigned_user and agent:
+        agent = None
+
     new_task = Task(
         id=str(uuid.uuid4()),
         title=task.title,
@@ -89,6 +109,7 @@ async def create_task(
         status=task.status,
         priority=task.priority,
         agent_id=agent.id if agent else None,
+        assigned_user_id=assigned_user.id if assigned_user else None,
         due_date=task.due_date,
         user_id=current_user.id,
     )
@@ -115,13 +136,27 @@ async def update_task(
     update_data = task_update.model_dump(exclude_unset=True)
     assigned_agent_in_payload = "assigned_agent" in update_data
     assigned_agent_value = update_data.pop("assigned_agent", None)
+    assigned_user_id_in_payload = "assigned_user_id" in update_data
+    assigned_user_id_value = update_data.pop("assigned_user_id", None)
 
+    # Resolve agent assignment
     if "agent_id" in update_data:
-        agent = await resolve_agent_by_id(update_data["agent_id"], db)
+        agent = await resolve_agent_by_id(update_data.pop("agent_id"), db)
         task.agent_id = agent.id if agent else None
+        if agent:
+            task.assigned_user_id = None
     elif assigned_agent_in_payload:
         agent = await resolve_agent_by_key(assigned_agent_value, db)
         task.agent_id = agent.id if agent else None
+        if agent:
+            task.assigned_user_id = None
+
+    # Resolve user assignment
+    if assigned_user_id_in_payload:
+        assigned_user = await resolve_user_by_id(assigned_user_id_value, db)
+        task.assigned_user_id = assigned_user.id if assigned_user else None
+        if assigned_user:
+            task.agent_id = None
 
     for field, value in update_data.items():
         setattr(task, field, value)
@@ -170,7 +205,7 @@ async def update_task_status(
 
 
 @router.put("/{task_id}/assign", response_model=TaskResponse)
-async def assign_task_agent(
+async def assign_task(
     task_id: str,
     assignment: TaskAssignmentUpdate,
     current_user: User = Depends(get_current_user),
@@ -183,10 +218,22 @@ async def assign_task_agent(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    agent = await resolve_agent_by_id(assignment.agent_id, db)
-    if not agent:
-        agent = await resolve_agent_by_key(assignment.assigned_agent, db)
-    task.agent_id = agent.id if agent else None
+    # User assignment takes priority
+    if assignment.assigned_user_id is not None:
+        assigned_user = await resolve_user_by_id(assignment.assigned_user_id, db)
+        task.assigned_user_id = assigned_user.id if assigned_user else None
+        task.agent_id = None
+    else:
+        agent = await resolve_agent_by_id(assignment.agent_id, db)
+        if not agent:
+            agent = await resolve_agent_by_key(assignment.assigned_agent, db)
+        task.agent_id = agent.id if agent else None
+        if agent:
+            task.assigned_user_id = None
+        elif assignment.agent_id is None and assignment.assigned_agent is None:
+            # Unassign everything
+            task.assigned_user_id = None
+
     await db.commit()
     await db.refresh(task)
     return task

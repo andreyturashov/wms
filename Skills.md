@@ -9,7 +9,6 @@
 - **JWT (Python-JOSE)** - JSON Web Token authentication
 - **Bcrypt & Passlib** - Password hashing and verification
 - **Uvicorn** - ASGI server for running FastAPI
-- **Alembic** - Database migrations
 - **Python 3.13** - Python version
 
 ## Frontend
@@ -17,13 +16,22 @@
 - **TypeScript** - Typed JavaScript
 - **Vite 8** - Next-generation frontend build tool (beta)
 - **Tailwind CSS v4** - Utility-first CSS framework
-- **Native Drag & Drop API** - Built-in browser drag and drop functionality for task management
+- **Native Drag & Drop API** - Built-in browser drag and drop for task management
+- **Inline Editing** - Double-click or pencil icon to edit task cards in place
+
+## Testing
+- **pytest** - Python testing framework
+- **pytest-asyncio** - Async test support for FastAPI/SQLAlchemy
+- **pytest-cov** - Code coverage reporting (100% line coverage)
+- **pytest-xdist** - Parallel test execution across CPU cores
+- **httpx** - Async HTTP client for API integration tests
 
 ## Development Tools
 - **uv** - Modern Python package manager
 - **Yarn** - JavaScript package manager
-- **Make** - Build automation tool
+- **Make** - Build automation tool (`make test`, `make test-cov`, `make run`)
 - **Git** - Version control
+- **Postman** - API testing via VS Code extension
 
 ## API Endpoints
 
@@ -39,6 +47,11 @@
 - `PUT /api/tasks/{task_id}` - Update task
 - `DELETE /api/tasks/{task_id}` - Delete task
 - `PUT /api/tasks/{task_id}/status` - Update task status
+- `PUT /api/tasks/{task_id}/assign` - Assign agent to task
+
+### Agents
+- `GET /api/agents` - List agents (supports `?active_only=true`)
+- `POST /api/agents` - Create new agent
 
 ## Database Schema
 
@@ -55,7 +68,17 @@
 - description (Text)
 - status (String) - todo, in_progress, done
 - priority (String) - low, medium, high
+- agent_id (String, FK → agents.id, nullable)
 - due_date (String, nullable)
-- user_id (String, FK)
+- user_id (String, FK → users.id)
+- created_at (DateTime)
+- updated_at (DateTime)
+
+### Agents Table
+- id (String, PK)
+- key (String, unique) - machine identifier
+- name (String) - display name
+- description (Text)
+- is_active (Boolean)
 - created_at (DateTime)
 - updated_at (DateTime)

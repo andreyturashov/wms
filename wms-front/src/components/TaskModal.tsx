@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Agent, Task, CreateTaskRequest } from '../types';
+import type { Agent, Task, CreateTaskRequest, User } from '../types';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -7,14 +7,16 @@ interface TaskModalProps {
   onSubmit: (data: CreateTaskRequest) => void;
   task?: Task | null;
   agents: Agent[];
+  users: User[];
 }
 
-export function TaskModal({ isOpen, onClose, onSubmit, task, agents }: TaskModalProps) {
+export function TaskModal({ isOpen, onClose, onSubmit, task, agents, users }: TaskModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<Task['status']>('todo');
   const [priority, setPriority] = useState<Task['priority']>('medium');
-  const [assignedAgentId, setAssignedAgentId] = useState<Task['agent_id']>(null);
+  // Unified assignee: "agent:<id>" | "user:<id>" | ""
+  const [assignee, setAssignee] = useState('');
   const [dueDate, setDueDate] = useState('');
 
   useEffect(() => {
@@ -23,26 +25,38 @@ export function TaskModal({ isOpen, onClose, onSubmit, task, agents }: TaskModal
       setDescription(task.description);
       setStatus(task.status);
       setPriority(task.priority);
-      setAssignedAgentId(task.agent_id);
+      if (task.agent_id) setAssignee(`agent:${task.agent_id}`);
+      else if (task.assigned_user_id) setAssignee(`user:${task.assigned_user_id}`);
+      else setAssignee('');
       setDueDate(task.due_date || '');
     } else {
       setTitle('');
       setDescription('');
       setStatus('todo');
       setPriority('medium');
-      setAssignedAgentId(null);
+      setAssignee('');
       setDueDate('');
     }
   }, [task, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    let agentId: string | null = null;
+    let assignedUserId: string | null = null;
+    if (assignee.startsWith('agent:')) {
+      agentId = assignee.slice(6);
+    } else if (assignee.startsWith('user:')) {
+      assignedUserId = assignee.slice(5);
+    }
+
     onSubmit({
       title,
       description,
       status,
       priority,
-      agent_id: assignedAgentId,
+      agent_id: agentId,
+      assigned_user_id: assignedUserId,
       due_date: dueDate || null,
     });
     onClose();
@@ -101,18 +115,31 @@ export function TaskModal({ isOpen, onClose, onSubmit, task, agents }: TaskModal
             </div>
           </div>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Agent</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
             <select
-              value={assignedAgentId ?? ''}
-              onChange={(e) => setAssignedAgentId((e.target.value || null) as Task['agent_id'])}
+              value={assignee}
+              onChange={(e) => setAssignee(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Unassigned</option>
-              {agents.map((agent) => (
-                <option key={agent.id} value={agent.id}>
-                  {agent.name}
-                </option>
-              ))}
+              {users.length > 0 && (
+                <optgroup label="Users">
+                  {users.map((u) => (
+                    <option key={u.id} value={`user:${u.id}`}>
+                      {u.username}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {agents.length > 0 && (
+                <optgroup label="Agents">
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={`agent:${agent.id}`}>
+                      {agent.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
           <div className="mb-6">

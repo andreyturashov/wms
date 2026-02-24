@@ -1,6 +1,6 @@
 // Real API - connects to FastAPI backend
 
-import type { Task, CreateTaskRequest, UpdateTaskRequest, AuthResponse, LoginRequest, RegisterRequest, User, Agent } from '../types';
+import type { Task, CreateTaskRequest, UpdateTaskRequest, AuthResponse, LoginRequest, RegisterRequest, User, Agent, Comment, CreateCommentRequest } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 const TOKEN_STORAGE_KEY = 'token';
@@ -144,6 +144,46 @@ export const tasksApi = {
 export const agentsApi = {
   getAll: async (activeOnly = true): Promise<Agent[]> => {
     return request<Agent[]>(`${API_BASE_URL}/agents?active_only=${activeOnly}`, {
+      headers: getHeaders(),
+    });
+  },
+};
+
+export const usersApi = {
+  getAll: async (): Promise<User[]> => {
+    return request<User[]>(`${API_BASE_URL}/auth/users`, {
+      headers: getHeaders(),
+    });
+  },
+};
+
+export const commentsApi = {
+  getByTaskId: async (taskId: string): Promise<Comment[]> => {
+    return request<Comment[]>(`${API_BASE_URL}/tasks/${taskId}/comments`, {
+      headers: getHeaders(),
+    });
+  },
+
+  getByAuthor: async (params: { user_id?: string; agent_id?: string }): Promise<Comment[]> => {
+    const qs = new URLSearchParams();
+    if (params.user_id) qs.set('user_id', params.user_id);
+    if (params.agent_id) qs.set('agent_id', params.agent_id);
+    return request<Comment[]>(`${API_BASE_URL}/comments?${qs.toString()}`, {
+      headers: getHeaders(),
+    });
+  },
+
+  create: async (taskId: string, data: CreateCommentRequest): Promise<Comment> => {
+    return request<Comment>(`${API_BASE_URL}/tasks/${taskId}/comments`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (taskId: string, commentId: string): Promise<void> => {
+    await request<void>(`${API_BASE_URL}/tasks/${taskId}/comments/${commentId}`, {
+      method: 'DELETE',
       headers: getHeaders(),
     });
   },

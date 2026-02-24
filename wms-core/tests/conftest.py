@@ -13,13 +13,14 @@ from app.db.session import get_db
 # Import all models so their tables are registered with Base.metadata
 from app.models import (
     agent as _agent_mod,
+    comment as _comment_mod,
     task as _task_mod,
     user as _user_mod,
 )  # noqa: F401
 
 from app.main import app, seed_default_agents
 
-_ = (_agent_mod, _task_mod, _user_mod)
+_ = (_agent_mod, _comment_mod, _task_mod, _user_mod)
 
 # ---------------------------------------------------------------------------
 # Database fixtures – each test gets its own in-memory SQLite database

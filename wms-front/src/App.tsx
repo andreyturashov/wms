@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Column, TaskModal } from './components';
-import { tasksApi, authApi, agentsApi } from './api';
-import type { Task, CreateTaskRequest, LoginRequest, RegisterRequest, Agent } from './types';
+import { Column, TaskModal, Sidebar, CommentPanel } from './components';
+import type { AuthorSelection } from './components';
+import { tasksApi, authApi, agentsApi, usersApi } from './api';
+import type { Task, CreateTaskRequest, LoginRequest, RegisterRequest, Agent, User } from './types';
 
 function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -13,6 +16,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [authorSelection, setAuthorSelection] = useState<AuthorSelection>(null);
 
   const loadTasks = useCallback(async () => {
     const data = await tasksApi.getAll();
@@ -24,6 +28,11 @@ function App() {
     setAgents(data);
   }, []);
 
+  const loadUsers = useCallback(async () => {
+    const data = await usersApi.getAll();
+    setUsers(data);
+  }, []);
+
   useEffect(() => {
     const initialize = async () => {
       const token = localStorage.getItem('token');
@@ -33,9 +42,10 @@ function App() {
       }
 
       try {
-        await authApi.me();
+        const me = await authApi.me();
+        setCurrentUser(me);
         setIsAuthenticated(true);
-        await Promise.all([loadTasks(), loadAgents()]);
+        await Promise.all([loadTasks(), loadAgents(), loadUsers()]);
       } catch {
         authApi.logout();
         setIsAuthenticated(false);
@@ -45,7 +55,7 @@ function App() {
     };
 
     void initialize();
-  }, [loadTasks, loadAgents]);
+  }, [loadTasks, loadAgents, loadUsers]);
 
   const handleCreateTask = async (data: CreateTaskRequest) => {
     setErrorMessage(null);
@@ -88,7 +98,9 @@ function App() {
 
       setIsAuthenticated(true);
       setIsAuthModalOpen(false);
-      await Promise.all([loadTasks(), loadAgents()]);
+      const me = await authApi.me();
+      setCurrentUser(me);
+      await Promise.all([loadTasks(), loadAgents(), loadUsers()]);
     } catch (error) {
       console.error('Auth failed:', error);
       setErrorMessage('Authentication failed. Please check your credentials.');
@@ -100,6 +112,8 @@ function App() {
     setIsAuthenticated(false);
     setTasks([]);
     setAgents([]);
+    setUsers([]);
+    setCurrentUser(null);
     setErrorMessage(null);
     setIsAuthModalOpen(false);
     setIsModalOpen(false);
@@ -149,7 +163,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div className="max-w-screen-2xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">WMS Task Manager</h1>
           <div className="flex gap-3">
             <button
@@ -171,38 +185,72 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-screen-2xl mx-auto px-4 py-6">
         {errorMessage && (
           <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
         )}
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          <Column
-            title="To Do"
-            status="todo"
-            tasks={todoTasks}
-            agents={agents}
-            onUpdateTask={handleUpdateTask}
-            onDeleteTask={handleDeleteTask}
-            onDrop={handleStatusChange}
-          />
-          <Column
-            title="In Progress"
-            status="in_progress"
-            tasks={inProgressTasks}
-            agents={agents}
-            onUpdateTask={handleUpdateTask}
-            onDeleteTask={handleDeleteTask}
-            onDrop={handleStatusChange}
-          />
-          <Column
-            title="Done"
-            status="done"
-            tasks={doneTasks}
-            agents={agents}
-            onUpdateTask={handleUpdateTask}
-            onDeleteTask={handleDeleteTask}
-            onDrop={handleStatusChange}
-          />
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1 text-sm mb-4">
+          <button
+            onClick={() => setAuthorSelection(null)}
+            className={`px-2 py-1 rounded-md transition-colors ${
+              !authorSelection
+                ? 'text-gray-800 font-semibold'
+                : 'text-blue-600 hover:text-blue-800 hover:underline'
+            }`}
+          >
+            Board
+          </button>
+          {authorSelection && (
+            <>
+              <span className="text-gray-400">/</span>
+              <span className="text-gray-800 font-semibold px-2 py-1">
+                {authorSelection.type === 'agent' ? '🤖' : '👤'} {authorSelection.name}
+              </span>
+            </>
+          )}
+        </nav>
+        <div className="flex gap-4">
+          <Sidebar users={users} agents={agents} selection={authorSelection} onSelect={setAuthorSelection} />
+          {authorSelection ? (
+            <CommentPanel selection={authorSelection} />
+          ) : (
+            <div className="flex-1 flex gap-4 overflow-x-auto pb-4">
+            <Column
+              title="To Do"
+              status="todo"
+              tasks={todoTasks}
+              agents={agents}
+              users={users}
+              currentUser={currentUser}
+              onUpdateTask={handleUpdateTask}
+              onDeleteTask={handleDeleteTask}
+              onDrop={handleStatusChange}
+            />
+            <Column
+              title="In Progress"
+              status="in_progress"
+              tasks={inProgressTasks}
+              agents={agents}
+              users={users}
+              currentUser={currentUser}
+              onUpdateTask={handleUpdateTask}
+              onDeleteTask={handleDeleteTask}
+              onDrop={handleStatusChange}
+            />
+            <Column
+              title="Done"
+              status="done"
+              tasks={doneTasks}
+              agents={agents}
+              users={users}
+              currentUser={currentUser}
+              onUpdateTask={handleUpdateTask}
+              onDeleteTask={handleDeleteTask}
+              onDrop={handleStatusChange}
+            />
+            </div>
+          )}
         </div>
       </main>
 
@@ -212,6 +260,7 @@ function App() {
         onSubmit={handleCreateTask}
         task={editingTask}
         agents={agents}
+        users={users}
       />
     </div>
   );

@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Agent, Task } from '../types';
+import type { Agent, Task, User } from '../types';
 import { tasksApi } from '../api';
+import { CommentSection } from './CommentSection';
 
 interface TaskCardProps {
   task: Task;
   agents: Agent[];
+  users: User[];
+  currentUser: User | null;
   onUpdate: (task: Task) => void;
   onDelete: (id: string) => void;
 }
@@ -15,16 +18,22 @@ const priorityColors = {
   high: 'bg-red-100 text-red-800',
 };
 
-export function TaskCard({ task, agents, onUpdate, onDelete }: TaskCardProps) {
+export function TaskCard({ task, agents, users, currentUser, onUpdate, onDelete }: TaskCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   // Edit form state
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDescription, setEditDescription] = useState(task.description);
   const [editPriority, setEditPriority] = useState<Task['priority']>(task.priority);
-  const [editAgentId, setEditAgentId] = useState<Task['agent_id']>(task.agent_id);
+  // Unified assignee: "agent:<id>" | "user:<id>" | ""
+  const [editAssignee, setEditAssignee] = useState(() => {
+    if (task.agent_id) return `agent:${task.agent_id}`;
+    if (task.assigned_user_id) return `user:${task.assigned_user_id}`;
+    return '';
+  });
   const [editDueDate, setEditDueDate] = useState(task.due_date ?? '');
 
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -35,7 +44,9 @@ export function TaskCard({ task, agents, onUpdate, onDelete }: TaskCardProps) {
       setEditTitle(task.title);
       setEditDescription(task.description);
       setEditPriority(task.priority);
-      setEditAgentId(task.agent_id);
+      if (task.agent_id) setEditAssignee(`agent:${task.agent_id}`);
+      else if (task.assigned_user_id) setEditAssignee(`user:${task.assigned_user_id}`);
+      else setEditAssignee('');
       setEditDueDate(task.due_date ?? '');
     }
   }, [task, isEditing]);
@@ -71,7 +82,9 @@ export function TaskCard({ task, agents, onUpdate, onDelete }: TaskCardProps) {
     setEditTitle(task.title);
     setEditDescription(task.description);
     setEditPriority(task.priority);
-    setEditAgentId(task.agent_id);
+    if (task.agent_id) setEditAssignee(`agent:${task.agent_id}`);
+    else if (task.assigned_user_id) setEditAssignee(`user:${task.assigned_user_id}`);
+    else setEditAssignee('');
     setEditDueDate(task.due_date ?? '');
     setIsEditing(true);
   };
@@ -84,11 +97,21 @@ export function TaskCard({ task, agents, onUpdate, onDelete }: TaskCardProps) {
     if (!editTitle.trim()) return;
     setSaving(true);
     try {
+      // Parse unified assignee value
+      let agentId: string | null = null;
+      let assignedUserId: string | null = null;
+      if (editAssignee.startsWith('agent:')) {
+        agentId = editAssignee.slice(6);
+      } else if (editAssignee.startsWith('user:')) {
+        assignedUserId = editAssignee.slice(5);
+      }
+
       const updatedTask = await tasksApi.update(task.id, {
         title: editTitle.trim(),
         description: editDescription,
         priority: editPriority,
-        agent_id: editAgentId,
+        agent_id: agentId,
+        assigned_user_id: assignedUserId,
         due_date: editDueDate || null,
       });
       onUpdate(updatedTask);
@@ -111,6 +134,10 @@ export function TaskCard({ task, agents, onUpdate, onDelete }: TaskCardProps) {
 
   const assignedAgent = task.agent_id
     ? agents.find((agent) => agent.id === task.agent_id) ?? null
+    : null;
+
+  const assignedUser = task.assigned_user_id
+    ? users.find((u) => u.id === task.assigned_user_id) ?? null
     : null;
 
   // --- Edit mode ---
@@ -158,18 +185,31 @@ export function TaskCard({ task, agents, onUpdate, onDelete }: TaskCardProps) {
           />
         </div>
 
-        {/* Agent */}
+        {/* Assignee (agents + users) */}
         <select
-          value={editAgentId ?? ''}
-          onChange={(e) => setEditAgentId((e.target.value || null) as Task['agent_id'])}
+          value={editAssignee}
+          onChange={(e) => setEditAssignee(e.target.value)}
           className="w-full px-2 py-1 border border-gray-300 rounded-md text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Unassigned</option>
-          {agents.map((agent) => (
-            <option key={agent.id} value={agent.id}>
-              {agent.name}
-            </option>
-          ))}
+          {users.length > 0 && (
+            <optgroup label="Users">
+              {users.map((u) => (
+                <option key={u.id} value={`user:${u.id}`}>
+                  {u.username}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {agents.length > 0 && (
+            <optgroup label="Agents">
+              {agents.map((agent) => (
+                <option key={agent.id} value={`agent:${agent.id}`}>
+                  {agent.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
 
         {/* Actions */}
@@ -230,7 +270,14 @@ export function TaskCard({ task, agents, onUpdate, onDelete }: TaskCardProps) {
       {assignedAgent && (
         <div className="mb-2">
           <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-800">
-            {assignedAgent.name}
+            🤖 {assignedAgent.name}
+          </span>
+        </div>
+      )}
+      {assignedUser && (
+        <div className="mb-2">
+          <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">
+            👤 {assignedUser.username}
           </span>
         </div>
       )}
@@ -240,12 +287,27 @@ export function TaskCard({ task, agents, onUpdate, onDelete }: TaskCardProps) {
         >
           {task.priority}
         </span>
-        {task.due_date && (
-          <span className="text-xs text-gray-500">
-            {new Date(task.due_date).toLocaleDateString()}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {task.due_date && (
+            <span className="text-xs text-gray-500">
+              {new Date(task.due_date).toLocaleDateString()}
+            </span>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowComments(!showComments);
+            }}
+            className="text-gray-400 hover:text-blue-500 text-xs"
+            title="Toggle comments"
+          >
+            💬
+          </button>
+        </div>
       </div>
+      {showComments && currentUser && (
+        <CommentSection taskId={task.id} agents={agents} currentUser={currentUser} />
+      )}
     </div>
   );
 }

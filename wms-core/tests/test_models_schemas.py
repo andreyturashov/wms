@@ -34,6 +34,7 @@ class TestTaskSchemas:
         assert t.priority == "medium"
         assert t.agent_id is None
         assert t.assigned_agent is None
+        assert t.assigned_user_id is None
         assert t.due_date is None
 
     def test_task_create_inherits_base(self):
@@ -63,6 +64,12 @@ class TestTaskSchemas:
         a = TaskAssignmentUpdate(agent_id="abc123")
         assert a.agent_id == "abc123"
         assert a.assigned_agent is None
+        assert a.assigned_user_id is None
+
+    def test_task_assignment_update_with_user(self):
+        a = TaskAssignmentUpdate(assigned_user_id="user123")
+        assert a.assigned_user_id == "user123"
+        assert a.agent_id is None
 
     def test_task_response_from_model(self):
         now = datetime.utcnow()
@@ -75,6 +82,8 @@ class TestTaskSchemas:
             "priority": "low",
             "agent_id": None,
             "assigned_agent": None,
+            "assigned_user_id": None,
+            "assigned_username": None,
             "due_date": None,
             "user_id": "u1",
             "created_at": now,
@@ -83,6 +92,8 @@ class TestTaskSchemas:
         resp = TaskResponse(**data)
         assert resp.id == "t1"
         assert resp.user_id == "u1"
+        assert resp.assigned_user_id is None
+        assert resp.assigned_username is None
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +180,14 @@ class TestModels:
     def test_task_assigned_agent_property_no_agent(self):
         t = TaskModel(id="t1", title="T", user_id="u1")
         assert t.assigned_agent is None
+
+    def test_task_assigned_username_property_no_user(self):
+        t = TaskModel(id="t1", title="T", user_id="u1")
+        assert t.assigned_username is None
+
+    def test_task_model_assigned_user_id_field(self):
+        t = TaskModel(id="t1", title="T", user_id="u1", assigned_user_id="u2")
+        assert t.assigned_user_id == "u2"
 
     def test_agent_model_fields(self):
         a = AgentModel(
