@@ -68,3 +68,19 @@ export interface RegisterRequest {
   username: string;
   password: string;
 }
+
+export interface Comment {
+  id: string;
+  task_id: string;
+  content: string;
+  user_id: string | null;
+  agent_id: string | null;
+  author_name: string;
+  author_type: 'user' | 'agent' | 'unknown';
+  created_at: string;
+}
+
+export interface CreateCommentRequest {
+  content: string;
+  agent_id?: string | null;
+}

@@ -7,6 +7,7 @@ function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -39,7 +40,8 @@ function App() {
       }
 
       try {
-        await authApi.me();
+        const me = await authApi.me();
+        setCurrentUser(me);
         setIsAuthenticated(true);
         await Promise.all([loadTasks(), loadAgents(), loadUsers()]);
       } catch {
@@ -94,6 +96,8 @@ function App() {
 
       setIsAuthenticated(true);
       setIsAuthModalOpen(false);
+      const me = await authApi.me();
+      setCurrentUser(me);
       await Promise.all([loadTasks(), loadAgents(), loadUsers()]);
     } catch (error) {
       console.error('Auth failed:', error);
@@ -107,6 +111,7 @@ function App() {
     setTasks([]);
     setAgents([]);
     setUsers([]);
+    setCurrentUser(null);
     setErrorMessage(null);
     setIsAuthModalOpen(false);
     setIsModalOpen(false);
@@ -189,6 +194,7 @@ function App() {
             tasks={todoTasks}
             agents={agents}
             users={users}
+            currentUser={currentUser}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
             onDrop={handleStatusChange}
@@ -199,6 +205,7 @@ function App() {
             tasks={inProgressTasks}
             agents={agents}
             users={users}
+            currentUser={currentUser}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
             onDrop={handleStatusChange}
@@ -209,6 +216,7 @@ function App() {
             tasks={doneTasks}
             agents={agents}
             users={users}
+            currentUser={currentUser}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
             onDrop={handleStatusChange}

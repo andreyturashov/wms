@@ -6,14 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text, select
 
 # Import models BEFORE creating tables to ensure they are registered with Base
-from app.models import user, task, agent
-from app.api import auth, tasks, agents
+from app.models import user, task, agent, comment
+from app.api import auth, tasks, agents, comments
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine, AsyncSessionLocal
 from app.models.agent import Agent
 
-_ = (user, task, agent)
+_ = (user, task, agent, comment)
 
 DEFAULT_AGENTS = [
     {
@@ -144,6 +144,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
+app.include_router(comments.router, prefix="/api/tasks", tags=["comments"])
 
 
 @app.get("/")

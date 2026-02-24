@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Agent, Task, User } from '../types';
 import { tasksApi } from '../api';
+import { CommentSection } from './CommentSection';
 
 interface TaskCardProps {
   task: Task;
   agents: Agent[];
   users: User[];
+  currentUser: User | null;
   onUpdate: (task: Task) => void;
   onDelete: (id: string) => void;
 }
@@ -16,10 +18,11 @@ const priorityColors = {
   high: 'bg-red-100 text-red-800',
 };
 
-export function TaskCard({ task, agents, users, onUpdate, onDelete }: TaskCardProps) {
+export function TaskCard({ task, agents, users, currentUser, onUpdate, onDelete }: TaskCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   // Edit form state
   const [editTitle, setEditTitle] = useState(task.title);
@@ -284,12 +287,27 @@ export function TaskCard({ task, agents, users, onUpdate, onDelete }: TaskCardPr
         >
           {task.priority}
         </span>
-        {task.due_date && (
-          <span className="text-xs text-gray-500">
-            {new Date(task.due_date).toLocaleDateString()}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {task.due_date && (
+            <span className="text-xs text-gray-500">
+              {new Date(task.due_date).toLocaleDateString()}
+            </span>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowComments(!showComments);
+            }}
+            className="text-gray-400 hover:text-blue-500 text-xs"
+            title="Toggle comments"
+          >
+            💬
+          </button>
+        </div>
       </div>
+      {showComments && currentUser && (
+        <CommentSection taskId={task.id} agents={agents} currentUser={currentUser} />
+      )}
     </div>
   );
 }
