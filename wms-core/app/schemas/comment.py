@@ -12,6 +12,7 @@ class CommentCreate(BaseModel):
 class CommentResponse(BaseModel):
     id: str
     task_id: str
+    task_title: str = ""
     content: str
     user_id: Optional[str] = None
     agent_id: Optional[str] = None

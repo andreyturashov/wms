@@ -72,6 +72,7 @@ export interface RegisterRequest {
 export interface Comment {
   id: string;
   task_id: string;
+  task_title: string;
   content: string;
   user_id: string | null;
   agent_id: string | null;

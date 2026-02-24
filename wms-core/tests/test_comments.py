@@ -250,6 +250,7 @@ class TestCommentResponseShape:
         expected_keys = {
             "id",
             "task_id",
+            "task_title",
             "content",
             "user_id",
             "agent_id",
@@ -258,3 +259,90 @@ class TestCommentResponseShape:
             "created_at",
         }
         assert expected_keys == set(comment.keys())
+
+    async def test_task_title_populated(self, authed_client: AsyncClient):
+        task = await create_task(authed_client, title="My Special Task")
+        comment = await create_comment(authed_client, task["id"], content="hello")
+        assert comment["task_title"] == "My Special Task"
+
+
+# ---------------------------------------------------------------------------
+# GET /api/comments?user_id=...&agent_id=...
+# ---------------------------------------------------------------------------
+
+
+class TestGetCommentsByAuthor:
+    async def test_get_by_user_id(self, authed_client: AsyncClient):
+        task = await create_task(authed_client)
+        c = await create_comment(authed_client, task["id"], content="user comment")
+        user_id = c["user_id"]
+
+        resp = await authed_client.get(f"/api/comments?user_id={user_id}")
+        assert resp.status_code == 200
+        comments = resp.json()
+        assert len(comments) >= 1
+        assert all(c["user_id"] == user_id for c in comments)
+
+    async def test_get_by_agent_id(self, authed_client: AsyncClient):
+        task = await create_task(authed_client)
+        agent_id = await get_agent_id(authed_client)
+        await create_comment(
+            authed_client, task["id"], content="agent comment", agent_id=agent_id
+        )
+
+        resp = await authed_client.get(f"/api/comments?agent_id={agent_id}")
+        assert resp.status_code == 200
+        comments = resp.json()
+        assert len(comments) == 1
+        assert comments[0]["agent_id"] == agent_id
+        assert comments[0]["content"] == "agent comment"
+
+    async def test_includes_task_title(self, authed_client: AsyncClient):
+        task = await create_task(authed_client, title="Special Task")
+        await create_comment(authed_client, task["id"], content="with title")
+
+        resp = await authed_client.get(f"/api/comments?user_id={task['user_id']}")
+        comments = resp.json()
+        assert any(c["task_title"] == "Special Task" for c in comments)
+
+    async def test_no_params_returns_400(self, authed_client: AsyncClient):
+        resp = await authed_client.get("/api/comments")
+        assert resp.status_code == 400
+
+    async def test_empty_when_no_comments(self, authed_client: AsyncClient):
+        resp = await authed_client.get("/api/comments?user_id=nonexistent")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    async def test_only_own_task_comments(self, client: AsyncClient):
+        """User B should not see comments on User A's tasks."""
+        user_a = await register_user(client, email="a@author.com", username="userA")
+        client.headers.update(auth_headers(user_a["access_token"]))
+        task = await create_task(client)
+        c = await create_comment(client, task["id"], content="private")
+        user_a_id = c["user_id"]
+
+        # User B queries for user A's comments — should see nothing
+        user_b = await register_user(client, email="b@author.com", username="userB")
+        client.headers.update(auth_headers(user_b["access_token"]))
+        resp = await client.get(f"/api/comments?user_id={user_a_id}")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    async def test_comments_across_multiple_tasks(self, authed_client: AsyncClient):
+        task1 = await create_task(authed_client, title="Task One")
+        task2 = await create_task(authed_client, title="Task Two")
+        await create_comment(authed_client, task1["id"], content="c1")
+        await create_comment(authed_client, task2["id"], content="c2")
+        c = await create_comment(authed_client, task1["id"], content="c3")
+        user_id = c["user_id"]
+
+        resp = await authed_client.get(f"/api/comments?user_id={user_id}")
+        comments = resp.json()
+        assert len(comments) == 3
+        titles = {c["task_title"] for c in comments}
+        assert titles == {"Task One", "Task Two"}
+
+    async def test_unauthenticated(self, client: AsyncClient):
+        resp = await client.get("/api/comments?user_id=some-id")
+        assert resp.status_code == 401

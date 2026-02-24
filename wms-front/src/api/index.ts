@@ -164,6 +164,15 @@ export const commentsApi = {
     });
   },
 
+  getByAuthor: async (params: { user_id?: string; agent_id?: string }): Promise<Comment[]> => {
+    const qs = new URLSearchParams();
+    if (params.user_id) qs.set('user_id', params.user_id);
+    if (params.agent_id) qs.set('agent_id', params.agent_id);
+    return request<Comment[]>(`${API_BASE_URL}/comments?${qs.toString()}`, {
+      headers: getHeaders(),
+    });
+  },
+
   create: async (taskId: string, data: CreateCommentRequest): Promise<Comment> => {
     return request<Comment>(`${API_BASE_URL}/tasks/${taskId}/comments`, {
       method: 'POST',

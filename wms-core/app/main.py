@@ -145,6 +145,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
 app.include_router(comments.router, prefix="/api/tasks", tags=["comments"])
+app.include_router(comments.comments_router, prefix="/api/comments", tags=["comments"])
 
 
 @app.get("/")

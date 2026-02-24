@@ -1,6 +1,7 @@
 import uuid
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +14,39 @@ from app.models.user import User
 from app.schemas.comment import CommentCreate, CommentResponse
 
 router = APIRouter()
+
+# Separate router for /api/comments (not nested under a task)
+comments_router = APIRouter()
+
+
+@comments_router.get("", response_model=list[CommentResponse])
+async def get_comments_by_author(
+    user_id: Optional[str] = Query(None),
+    agent_id: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all comments authored by a given user or agent (across tasks owned by current user)."""
+    if not user_id and not agent_id:
+        raise HTTPException(
+            status_code=400, detail="Provide user_id or agent_id query parameter"
+        )
+
+    # Only return comments on tasks owned by the current user
+    query = (
+        select(Comment)
+        .join(Task, Comment.task_id == Task.id)
+        .where(Task.user_id == current_user.id)
+    )
+
+    if user_id:
+        query = query.where(Comment.user_id == user_id)
+    elif agent_id:
+        query = query.where(Comment.agent_id == agent_id)
+
+    query = query.order_by(Comment.created_at.desc())
+    result = await db.execute(query)
+    return result.scalars().all()
 
 
 @router.get("/{task_id}/comments", response_model=list[CommentResponse])
