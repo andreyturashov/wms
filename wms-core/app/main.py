@@ -43,6 +43,7 @@ async def create_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await ensure_task_agent_fk_column(conn)
+        await ensure_task_assigned_user_fk_column(conn)
 
     await seed_default_agents()
     await backfill_task_agent_ids()
@@ -55,6 +56,21 @@ async def ensure_task_agent_fk_column(conn) -> None:
         await conn.execute(text("ALTER TABLE tasks ADD COLUMN agent_id VARCHAR"))
     await conn.execute(
         text("CREATE INDEX IF NOT EXISTS ix_tasks_agent_id ON tasks (agent_id)")
+    )
+
+
+async def ensure_task_assigned_user_fk_column(conn) -> None:
+    table_info = await conn.execute(text("PRAGMA table_info(tasks)"))
+    columns = {row[1] for row in table_info.fetchall()}
+    if "assigned_user_id" not in columns:
+        await conn.execute(
+            text("ALTER TABLE tasks ADD COLUMN assigned_user_id VARCHAR")
+        )
+    await conn.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_tasks_assigned_user_id"
+            " ON tasks (assigned_user_id)"
+        )
     )
 
 

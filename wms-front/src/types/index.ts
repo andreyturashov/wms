@@ -16,6 +16,8 @@ export interface Task {
   priority: 'low' | 'medium' | 'high';
   agent_id: string | null;
   assigned_agent: string | null;
+  assigned_user_id: string | null;
+  assigned_username: string | null;
   due_date: string | null;
   user_id: string;
   created_at: string;
@@ -29,6 +31,7 @@ export interface CreateTaskRequest {
   priority: 'low' | 'medium' | 'high';
   agent_id?: string | null;
   assigned_agent?: string | null;
+  assigned_user_id?: string | null;
   due_date?: string | null;
 }
 
@@ -39,6 +42,7 @@ export interface UpdateTaskRequest {
   priority?: 'low' | 'medium' | 'high';
   agent_id?: string | null;
   assigned_agent?: string | null;
+  assigned_user_id?: string | null;
   due_date?: string | null;
 }
 

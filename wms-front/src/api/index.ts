@@ -148,3 +148,11 @@ export const agentsApi = {
     });
   },
 };
+
+export const usersApi = {
+  getAll: async (): Promise<User[]> => {
+    return request<User[]>(`${API_BASE_URL}/auth/users`, {
+      headers: getHeaders(),
+    });
+  },
+};

@@ -14,6 +14,7 @@ class TaskBase(BaseModel):
     priority: TaskPriority = "medium"
     agent_id: Optional[str] = None
     assigned_agent: Optional[str] = None
+    assigned_user_id: Optional[str] = None
     due_date: Optional[str] = None
 
 
@@ -28,6 +29,7 @@ class TaskUpdate(BaseModel):
     priority: Optional[TaskPriority] = None
     agent_id: Optional[str] = None
     assigned_agent: Optional[str] = None
+    assigned_user_id: Optional[str] = None
     due_date: Optional[str] = None
 
 
@@ -38,11 +40,13 @@ class TaskStatusUpdate(BaseModel):
 class TaskAssignmentUpdate(BaseModel):
     agent_id: Optional[str] = None
     assigned_agent: Optional[str] = None
+    assigned_user_id: Optional[str] = None
 
 
 class TaskResponse(TaskBase):
     id: str
     user_id: str
+    assigned_username: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

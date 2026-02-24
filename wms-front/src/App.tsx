@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Column, TaskModal } from './components';
-import { tasksApi, authApi, agentsApi } from './api';
-import type { Task, CreateTaskRequest, LoginRequest, RegisterRequest, Agent } from './types';
+import { tasksApi, authApi, agentsApi, usersApi } from './api';
+import type { Task, CreateTaskRequest, LoginRequest, RegisterRequest, Agent, User } from './types';
 
 function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -24,6 +25,11 @@ function App() {
     setAgents(data);
   }, []);
 
+  const loadUsers = useCallback(async () => {
+    const data = await usersApi.getAll();
+    setUsers(data);
+  }, []);
+
   useEffect(() => {
     const initialize = async () => {
       const token = localStorage.getItem('token');
@@ -35,7 +41,7 @@ function App() {
       try {
         await authApi.me();
         setIsAuthenticated(true);
-        await Promise.all([loadTasks(), loadAgents()]);
+        await Promise.all([loadTasks(), loadAgents(), loadUsers()]);
       } catch {
         authApi.logout();
         setIsAuthenticated(false);
@@ -45,7 +51,7 @@ function App() {
     };
 
     void initialize();
-  }, [loadTasks, loadAgents]);
+  }, [loadTasks, loadAgents, loadUsers]);
 
   const handleCreateTask = async (data: CreateTaskRequest) => {
     setErrorMessage(null);
@@ -88,7 +94,7 @@ function App() {
 
       setIsAuthenticated(true);
       setIsAuthModalOpen(false);
-      await Promise.all([loadTasks(), loadAgents()]);
+      await Promise.all([loadTasks(), loadAgents(), loadUsers()]);
     } catch (error) {
       console.error('Auth failed:', error);
       setErrorMessage('Authentication failed. Please check your credentials.');
@@ -100,6 +106,7 @@ function App() {
     setIsAuthenticated(false);
     setTasks([]);
     setAgents([]);
+    setUsers([]);
     setErrorMessage(null);
     setIsAuthModalOpen(false);
     setIsModalOpen(false);
@@ -181,6 +188,7 @@ function App() {
             status="todo"
             tasks={todoTasks}
             agents={agents}
+            users={users}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
             onDrop={handleStatusChange}
@@ -190,6 +198,7 @@ function App() {
             status="in_progress"
             tasks={inProgressTasks}
             agents={agents}
+            users={users}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
             onDrop={handleStatusChange}
@@ -199,6 +208,7 @@ function App() {
             status="done"
             tasks={doneTasks}
             agents={agents}
+            users={users}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTask}
             onDrop={handleStatusChange}
@@ -212,6 +222,7 @@ function App() {
         onSubmit={handleCreateTask}
         task={editingTask}
         agents={agents}
+        users={users}
       />
     </div>
   );

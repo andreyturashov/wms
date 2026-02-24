@@ -12,6 +12,7 @@ from app.main import (
     backfill_task_agent_ids,
     create_tables,
     ensure_task_agent_fk_column,
+    ensure_task_assigned_user_fk_column,
     seed_default_agents,
 )
 from app.models.agent import Agent
@@ -104,6 +105,44 @@ class TestEnsureAgentFkColumn:
             info = await conn.execute(text("PRAGMA table_info(tasks)"))
             cols = {row[1] for row in info.fetchall()}
         assert "agent_id" in cols
+
+
+# ---------------------------------------------------------------------------
+# ensure_task_assigned_user_fk_column
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureAssignedUserFkColumn:
+    async def test_creates_column_and_index(self):
+        """Column exists from metadata.create_all — should be a no-op."""
+        async with _engine.begin() as conn:
+            await ensure_task_assigned_user_fk_column(conn)
+            info = await conn.execute(text("PRAGMA table_info(tasks)"))
+            cols = {row[1] for row in info.fetchall()}
+        assert "assigned_user_id" in cols
+
+    async def test_adds_column_when_missing(self):
+        """Drop assigned_user_id and verify it's re-created."""
+        async with _engine.begin() as conn:
+            await conn.execute(text("DROP TABLE IF EXISTS tasks"))
+            await conn.execute(
+                text(
+                    "CREATE TABLE tasks ("
+                    "  id VARCHAR PRIMARY KEY,"
+                    "  title VARCHAR NOT NULL,"
+                    "  description TEXT DEFAULT '',"
+                    "  status VARCHAR DEFAULT 'todo',"
+                    "  priority VARCHAR DEFAULT 'medium',"
+                    "  due_date VARCHAR,"
+                    "  user_id VARCHAR NOT NULL,"
+                    "  agent_id VARCHAR"
+                    ")"
+                )
+            )
+            await ensure_task_assigned_user_fk_column(conn)
+            info = await conn.execute(text("PRAGMA table_info(tasks)"))
+            cols = {row[1] for row in info.fetchall()}
+        assert "assigned_user_id" in cols
 
 
 # ---------------------------------------------------------------------------

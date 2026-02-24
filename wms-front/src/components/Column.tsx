@@ -1,4 +1,4 @@
-import type { Agent, Task } from '../types';
+import type { Agent, Task, User } from '../types';
 import { TaskCard } from './TaskCard';
 
 interface ColumnProps {
@@ -6,6 +6,7 @@ interface ColumnProps {
   status: Task['status'];
   tasks: Task[];
   agents: Agent[];
+  users: User[];
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
   onDrop: (taskId: string, newStatus: Task['status']) => void;
@@ -17,7 +18,7 @@ const columnColors: Record<Task['status'], string> = {
   done: 'bg-green-100',
 };
 
-export function Column({ title, status, tasks, agents, onUpdateTask, onDeleteTask, onDrop }: ColumnProps) {
+export function Column({ title, status, tasks, agents, users, onUpdateTask, onDeleteTask, onDrop }: ColumnProps) {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
@@ -48,6 +49,7 @@ export function Column({ title, status, tasks, agents, onUpdateTask, onDeleteTas
             key={task.id}
             task={task}
             agents={agents}
+            users={users}
             onUpdate={onUpdateTask}
             onDelete={onDeleteTask}
           />
