@@ -51,7 +51,10 @@ class TestGetComments:
         task = await create_task(authed_client)
         resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
         assert resp.status_code == 200
-        assert resp.json() == []
+        # Task creation auto-generates an AI analysis comment
+        comments = resp.json()
+        assert len(comments) == 1
+        assert comments[0]["author_type"] == "agent"
 
     async def test_returns_comments(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
@@ -61,9 +64,10 @@ class TestGetComments:
         resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
         assert resp.status_code == 200
         comments = resp.json()
-        assert len(comments) == 2
-        assert comments[0]["content"] == "First"
-        assert comments[1]["content"] == "Second"
+        # 1 AI auto-comment + 2 manual
+        assert len(comments) == 3
+        assert comments[1]["content"] == "First"
+        assert comments[2]["content"] == "Second"
 
     async def test_comments_ordered_by_created_at(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
@@ -73,7 +77,8 @@ class TestGetComments:
 
         resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
         comments = resp.json()
-        contents = [c["content"] for c in comments]
+        # First is the AI auto-comment, then A, B, C
+        contents = [c["content"] for c in comments[1:]]
         assert contents == ["A", "B", "C"]
 
     async def test_task_not_found(self, authed_client: AsyncClient):
@@ -193,9 +198,11 @@ class TestDeleteComment:
         )
         assert resp.status_code == 204
 
-        # Verify it's gone
+        # Verify it's gone – only the AI auto-comment remains
         resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
-        assert resp.json() == []
+        remaining = resp.json()
+        assert len(remaining) == 1
+        assert remaining[0]["author_type"] == "agent"
 
     async def test_delete_nonexistent_comment(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
@@ -378,11 +385,11 @@ class TestThreadedComments:
         )
         resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
         comments = resp.json()
-        # Only top-level returned
-        assert len(comments) == 1
-        assert comments[0]["id"] == parent["id"]
-        assert len(comments[0]["replies"]) == 1
-        assert comments[0]["replies"][0]["content"] == "nested"
+        # AI auto-comment + the parent (top-level only)
+        assert len(comments) == 2
+        user_comment = [c for c in comments if c["id"] == parent["id"]][0]
+        assert len(user_comment["replies"]) == 1
+        assert user_comment["replies"][0]["content"] == "nested"
 
     async def test_top_level_has_null_parent_id(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
@@ -421,6 +428,8 @@ class TestThreadedComments:
             f"/api/tasks/{task['id']}/comments/{parent['id']}"
         )
         assert resp.status_code == 204
-        # No comments left
+        # Only the AI auto-comment remains
         resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
-        assert resp.json() == []
+        remaining = resp.json()
+        assert len(remaining) == 1
+        assert remaining[0]["author_type"] == "agent"

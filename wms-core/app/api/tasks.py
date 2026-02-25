@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.models.agent import Agent
 from app.models.user import User
 from app.models.task import Task
+from app.ai.task_analysis import analyse_task_and_comment
 from app.schemas.task import (
     TaskCreate,
     TaskUpdate,
@@ -116,6 +117,16 @@ async def create_task(
     db.add(new_task)
     await db.commit()
     await db.refresh(new_task)
+
+    # Run the AI analysis pipeline and post result as a comment
+    await analyse_task_and_comment(
+        task_id=new_task.id,
+        title=new_task.title,
+        description=new_task.description or "",
+        priority=new_task.priority,
+        task_status=new_task.status,
+    )
+
     return new_task
 
 
