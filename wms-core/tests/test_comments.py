@@ -256,6 +256,8 @@ class TestCommentResponseShape:
             "agent_id",
             "author_name",
             "author_type",
+            "parent_id",
+            "replies",
             "created_at",
         }
         assert expected_keys == set(comment.keys())
@@ -346,3 +348,79 @@ class TestGetCommentsByAuthor:
     async def test_unauthenticated(self, client: AsyncClient):
         resp = await client.get("/api/comments?user_id=some-id")
         assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Threaded / nested comments
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+class TestThreadedComments:
+    async def test_reply_to_comment(self, authed_client: AsyncClient):
+        task = await create_task(authed_client)
+        parent = await create_comment(authed_client, task["id"], content="parent")
+        resp = await authed_client.post(
+            f"/api/tasks/{task['id']}/comments",
+            json={"content": "reply", "parent_id": parent["id"]},
+        )
+        assert resp.status_code == 201
+        reply = resp.json()
+        assert reply["parent_id"] == parent["id"]
+        assert reply["content"] == "reply"
+
+    async def test_reply_appears_nested_in_get(self, authed_client: AsyncClient):
+        task = await create_task(authed_client)
+        parent = await create_comment(authed_client, task["id"], content="top")
+        await authed_client.post(
+            f"/api/tasks/{task['id']}/comments",
+            json={"content": "nested", "parent_id": parent["id"]},
+        )
+        resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
+        comments = resp.json()
+        # Only top-level returned
+        assert len(comments) == 1
+        assert comments[0]["id"] == parent["id"]
+        assert len(comments[0]["replies"]) == 1
+        assert comments[0]["replies"][0]["content"] == "nested"
+
+    async def test_top_level_has_null_parent_id(self, authed_client: AsyncClient):
+        task = await create_task(authed_client)
+        comment = await create_comment(authed_client, task["id"], content="top")
+        assert comment["parent_id"] is None
+
+    async def test_reply_to_nonexistent_parent(self, authed_client: AsyncClient):
+        task = await create_task(authed_client)
+        resp = await authed_client.post(
+            f"/api/tasks/{task['id']}/comments",
+            json={"content": "orphan", "parent_id": "no-such-id"},
+        )
+        assert resp.status_code == 400
+        assert "Parent comment not found" in resp.json()["detail"]
+
+    async def test_reply_to_comment_on_different_task(self, authed_client: AsyncClient):
+        task1 = await create_task(authed_client, title="Task 1")
+        task2 = await create_task(authed_client, title="Task 2")
+        parent = await create_comment(authed_client, task1["id"], content="t1 comment")
+        # Try to reply under task2 using parent from task1
+        resp = await authed_client.post(
+            f"/api/tasks/{task2['id']}/comments",
+            json={"content": "cross-task", "parent_id": parent["id"]},
+        )
+        assert resp.status_code == 400
+
+    async def test_delete_parent_cascades_replies(self, authed_client: AsyncClient):
+        task = await create_task(authed_client)
+        parent = await create_comment(authed_client, task["id"], content="parent")
+        await authed_client.post(
+            f"/api/tasks/{task['id']}/comments",
+            json={"content": "child", "parent_id": parent["id"]},
+        )
+        # Delete parent
+        resp = await authed_client.delete(
+            f"/api/tasks/{task['id']}/comments/{parent['id']}"
+        )
+        assert resp.status_code == 204
+        # No comments left
+        resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
+        assert resp.json() == []

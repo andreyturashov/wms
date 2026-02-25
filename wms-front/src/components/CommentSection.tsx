@@ -14,6 +14,7 @@ export function CommentSection({ taskId, agents, currentUser }: CommentSectionPr
   const [newContent, setNewContent] = useState('');
   const [postAs, setPostAs] = useState(''); // "" = current user, "agent:<id>" = agent
   const [submitting, setSubmitting] = useState(false);
+  const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,9 +45,16 @@ export function CommentSection({ taskId, agents, currentUser }: CommentSectionPr
       const comment = await commentsApi.create(taskId, {
         content: newContent.trim(),
         agent_id: agentId,
+        parent_id: replyTo?.id ?? null,
       });
-      setComments((prev) => [...prev, comment]);
+      if (replyTo) {
+        // Add reply nested under its parent
+        setComments((prev) => addReply(prev, replyTo.id, comment));
+      } else {
+        setComments((prev) => [...prev, comment]);
+      }
       setNewContent('');
+      setReplyTo(null);
     } catch (err) {
       console.error('Failed to post comment:', err);
     } finally {
@@ -54,10 +62,24 @@ export function CommentSection({ taskId, agents, currentUser }: CommentSectionPr
     }
   };
 
+  /** Recursively insert a reply under the matching parent */
+  const addReply = (list: Comment[], parentId: string, reply: Comment): Comment[] =>
+    list.map((c) =>
+      c.id === parentId
+        ? { ...c, replies: [...c.replies, reply] }
+        : { ...c, replies: addReply(c.replies, parentId, reply) },
+    );
+
+  /** Recursively remove a comment by id */
+  const removeComment = (list: Comment[], commentId: string): Comment[] =>
+    list
+      .filter((c) => c.id !== commentId)
+      .map((c) => ({ ...c, replies: removeComment(c.replies, commentId) }));
+
   const handleDelete = async (commentId: string) => {
     try {
       await commentsApi.delete(taskId, commentId);
-      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      setComments((prev) => removeComment(prev, commentId));
     } catch (err) {
       console.error('Failed to delete comment:', err);
     }
@@ -79,6 +101,51 @@ export function CommentSection({ taskId, agents, currentUser }: CommentSectionPr
     });
   };
 
+  /** Render a single comment + its nested replies */
+  const renderComment = (c: Comment, depth: number = 0) => (
+    <div key={c.id} style={{ marginLeft: depth * 20 }}>
+      <div className="group flex gap-2 text-xs">
+        <div className="flex-shrink-0 pt-0.5">
+          {c.author_type === 'agent' ? (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-[10px]">
+              🤖
+            </span>
+          ) : (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-[10px]">
+              👤
+            </span>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-1">
+            <span className="font-medium text-gray-700">{c.author_name}</span>
+            <span className="text-gray-400 text-[10px]">{formatTime(c.created_at)}</span>
+            <button
+              onClick={() => setReplyTo(c)}
+              className="ml-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500 transition-opacity text-[10px]"
+              title="Reply"
+            >
+              ↩
+            </button>
+            <button
+              onClick={() => void handleDelete(c.id)}
+              className="ml-auto opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+              title="Delete comment"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="text-gray-600 whitespace-pre-wrap break-words">{c.content}</p>
+        </div>
+      </div>
+      {c.replies?.length > 0 && (
+        <div className="mt-1 space-y-1 border-l-2 border-gray-200 pl-1">
+          {c.replies.map((r) => renderComment(r, depth + 1))}
+        </div>
+      )}
+    </div>
+  );
+
   if (loading) {
     return <p className="text-xs text-gray-400 py-2">Loading comments…</p>;
   }
@@ -90,37 +157,22 @@ export function CommentSection({ taskId, agents, currentUser }: CommentSectionPr
         {comments.length === 0 && (
           <p className="text-xs text-gray-400 italic">No comments yet</p>
         )}
-        {comments.map((c) => (
-          <div key={c.id} className="group flex gap-2 text-xs">
-            <div className="flex-shrink-0 pt-0.5">
-              {c.author_type === 'agent' ? (
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-[10px]">
-                  🤖
-                </span>
-              ) : (
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-[10px]">
-                  👤
-                </span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline gap-1">
-                <span className="font-medium text-gray-700">{c.author_name}</span>
-                <span className="text-gray-400 text-[10px]">{formatTime(c.created_at)}</span>
-                <button
-                  onClick={() => void handleDelete(c.id)}
-                  className="ml-auto opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
-                  title="Delete comment"
-                >
-                  ✕
-                </button>
-              </div>
-              <p className="text-gray-600 whitespace-pre-wrap break-words">{c.content}</p>
-            </div>
-          </div>
-        ))}
+        {comments.map((c) => renderComment(c))}
         <div ref={bottomRef} />
       </div>
+
+      {/* Reply indicator */}
+      {replyTo && (
+        <div className="flex items-center gap-1 text-[11px] text-blue-600 mb-1">
+          <span>↩ Replying to <strong>{replyTo.author_name}</strong></span>
+          <button
+            onClick={() => setReplyTo(null)}
+            className="text-gray-400 hover:text-red-500 ml-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* New comment form */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-1">
@@ -129,7 +181,7 @@ export function CommentSection({ taskId, agents, currentUser }: CommentSectionPr
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Write a comment…"
+            placeholder={replyTo ? `Reply to ${replyTo.author_name}…` : 'Write a comment…'}
             rows={2}
             className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -152,7 +204,7 @@ export function CommentSection({ taskId, agents, currentUser }: CommentSectionPr
             disabled={submitting || !newContent.trim()}
             className="ml-auto text-xs px-2 py-0.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
-            {submitting ? '…' : 'Send'}
+            {submitting ? '…' : replyTo ? 'Reply' : 'Send'}
           </button>
         </div>
       </form>
