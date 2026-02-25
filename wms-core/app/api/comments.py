@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.auth import get_current_user
 from app.db.session import get_db
@@ -45,6 +46,7 @@ async def get_comments_by_author(
         query = query.where(Comment.agent_id == agent_id)
 
     query = query.order_by(Comment.created_at.desc())
+    query = query.options(selectinload(Comment.replies))
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -62,9 +64,11 @@ async def get_task_comments(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Task not found")
 
+    # Return only top-level comments; replies are nested via the relationship
     result = await db.execute(
         select(Comment)
-        .where(Comment.task_id == task_id)
+        .where(Comment.task_id == task_id, Comment.parent_id.is_(None))
+        .options(selectinload(Comment.replies).selectinload(Comment.replies))
         .order_by(Comment.created_at.asc())
     )
     return result.scalars().all()
@@ -110,11 +114,31 @@ async def create_task_comment(
         content=payload.content.strip(),
         user_id=user_id,
         agent_id=agent_id,
+        parent_id=None,
     )
+
+    # Validate parent_id if provided
+    if payload.parent_id:
+        parent_result = await db.execute(
+            select(Comment).where(
+                Comment.id == payload.parent_id, Comment.task_id == task_id
+            )
+        )
+        if not parent_result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=400, detail="Parent comment not found in this task"
+            )
+        comment.parent_id = payload.parent_id
+
     db.add(comment)
     await db.commit()
-    await db.refresh(comment)
-    return comment
+    # Re-fetch with relationships loaded
+    result = await db.execute(
+        select(Comment)
+        .where(Comment.id == comment.id)
+        .options(selectinload(Comment.replies))
+    )
+    return result.scalar_one()
 
 
 @router.delete(

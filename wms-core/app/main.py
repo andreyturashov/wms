@@ -8,6 +8,7 @@ from sqlalchemy import text, select
 # Import models BEFORE creating tables to ensure they are registered with Base
 from app.models import user, task, agent, comment
 from app.api import auth, tasks, agents, comments
+from app.admin import setup_admin
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine, AsyncSessionLocal
@@ -146,6 +147,9 @@ app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
 app.include_router(comments.router, prefix="/api/tasks", tags=["comments"])
 app.include_router(comments.comments_router, prefix="/api/comments", tags=["comments"])
+
+# Admin panel at /admin
+setup_admin(app, engine)
 
 
 @app.get("/")

@@ -19,11 +19,26 @@ class Comment(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
     agent_id = Column(String, ForeignKey("agents.id"), nullable=True, index=True)
 
+    # Self-referential: reply to another comment
+    parent_id = Column(
+        String,
+        ForeignKey("comments.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     task = relationship("Task", lazy="joined")
     user = relationship("User", lazy="joined")
     agent = relationship("Agent", lazy="joined")
+    parent = relationship("Comment", remote_side=[id], lazy="joined")
+    replies = relationship(
+        "Comment",
+        back_populates="parent",
+        cascade="all, delete-orphan",
+        lazy="noload",
+    )
 
     @property
     def author_name(self) -> str:

@@ -70,6 +70,11 @@ async def _override_get_db() -> AsyncGenerator[AsyncSession, None]:
 # Override the DB dependency for the whole test suite
 app.dependency_overrides[get_db] = _override_get_db
 
+# Point the AI analysis module at the test session factory
+from app.ai.task_analysis import set_session_factory
+
+set_session_factory(TestSession)
+
 
 # ---------------------------------------------------------------------------
 # HTTP client fixture

@@ -5,7 +5,7 @@ GREEN = \033[0;32m
 YELLOW = \033[1;33m
 NC = \033[0m # No Color
 
-.PHONY: help install install-backend install-frontend run start-backend start-frontend stop clean test test-cov
+.PHONY: help install install-backend install-frontend run start-backend start-frontend stop clean test test-frontend test-all test-cov
 
 help:
 	@echo "$(GREEN)WMS Project Makefile$(NC)"
@@ -17,8 +17,8 @@ help:
 	@echo "  make start-frontend   - Start only the frontend dev server"
 	@echo "  make stop             - Stop all running servers"
 	@echo "  make clean            - Clean up database and cache files"
-	@echo "  make test             - Run backend tests"
-	@echo "  make test-cov         - Run backend tests with coverage report"
+	@echo "  make test             - Run backend tests"	@echo "  make test-frontend    - Run frontend tests"
+	@echo "  make test-all         - Run all tests (backend + frontend)"	@echo "  make test-cov         - Run backend tests with coverage report"
 	@echo ""
 
 install: install-backend install-frontend
@@ -67,6 +67,14 @@ test:
 	@echo "$(YELLOW)Running backend tests...$(NC)"
 	cd wms-core && uv run pytest -n auto -v
 	@echo "$(GREEN)Tests complete!$(NC)"
+
+test-frontend:
+	@echo "$(YELLOW)Running frontend tests...$(NC)"
+	cd wms-front && /bin/bash -c "source ~/.nvm/nvm.sh && nvm use 22 && npx vitest run"
+	@echo "$(GREEN)Frontend tests complete!$(NC)"
+
+test-all: test test-frontend
+	@echo "$(GREEN)All tests complete!$(NC)"
 
 test-cov:
 	@echo "$(YELLOW)Running backend tests with coverage...$(NC)"

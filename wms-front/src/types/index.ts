@@ -78,10 +78,13 @@ export interface Comment {
   agent_id: string | null;
   author_name: string;
   author_type: 'user' | 'agent' | 'unknown';
+  parent_id: string | null;
+  replies: Comment[];
   created_at: string;
 }
 
 export interface CreateCommentRequest {
   content: string;
   agent_id?: string | null;
+  parent_id?: string | null;
 }
