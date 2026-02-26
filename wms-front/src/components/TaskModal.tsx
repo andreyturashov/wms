@@ -19,6 +19,7 @@ export function TaskModal({ isOpen, onClose, onSubmit, task, agents, users }: Ta
   const [assignee, setAssignee] = useState('');
   const [dueDate, setDueDate] = useState('');
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (task) {
       setTitle(task.title);
@@ -38,6 +39,7 @@ export function TaskModal({ isOpen, onClose, onSubmit, task, agents, users }: Ta
       setDueDate('');
     }
   }, [task, isOpen]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

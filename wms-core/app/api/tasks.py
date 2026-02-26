@@ -1,22 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List
 import uuid
 
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.ai.task_analysis import analyse_task_and_comment
+from app.api.auth import get_current_user
 from app.db.session import get_db
 from app.models.agent import Agent
-from app.models.user import User
 from app.models.task import Task
-from app.ai.task_analysis import analyse_task_and_comment
+from app.models.user import User
 from app.schemas.task import (
+    TaskAssignmentUpdate,
     TaskCreate,
-    TaskUpdate,
     TaskResponse,
     TaskStatusUpdate,
-    TaskAssignmentUpdate,
+    TaskUpdate,
 )
-from app.api.auth import get_current_user
 
 router = APIRouter()
 
@@ -63,10 +63,8 @@ async def resolve_user_by_id(
     return user
 
 
-@router.get("", response_model=List[TaskResponse])
-async def get_tasks(
-    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
-):
+@router.get("", response_model=list[TaskResponse])
+async def get_tasks(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Task).where(Task.user_id == current_user.id))
     tasks = result.scalars().all()
     return tasks
@@ -78,9 +76,7 @@ async def get_task(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Task).where(Task.id == task_id, Task.user_id == current_user.id)
-    )
+    result = await db.execute(select(Task).where(Task.id == task_id, Task.user_id == current_user.id))
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -137,9 +133,7 @@ async def update_task(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Task).where(Task.id == task_id, Task.user_id == current_user.id)
-    )
+    result = await db.execute(select(Task).where(Task.id == task_id, Task.user_id == current_user.id))
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -183,9 +177,7 @@ async def delete_task(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Task).where(Task.id == task_id, Task.user_id == current_user.id)
-    )
+    result = await db.execute(select(Task).where(Task.id == task_id, Task.user_id == current_user.id))
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -202,9 +194,7 @@ async def update_task_status(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Task).where(Task.id == task_id, Task.user_id == current_user.id)
-    )
+    result = await db.execute(select(Task).where(Task.id == task_id, Task.user_id == current_user.id))
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -222,9 +212,7 @@ async def assign_task(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Task).where(Task.id == task_id, Task.user_id == current_user.id)
-    )
+    result = await db.execute(select(Task).where(Task.id == task_id, Task.user_id == current_user.id))
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")

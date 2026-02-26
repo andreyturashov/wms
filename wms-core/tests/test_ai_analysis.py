@@ -3,8 +3,6 @@
 import pytest
 from httpx import AsyncClient
 
-from tests.conftest import register_user, auth_headers
-
 TASK_PAYLOAD = {
     "title": "Build the dashboard",
     "description": "Create a dashboard with charts",
@@ -34,9 +32,7 @@ class TestAITaskAnalysis:
         assert "AI Analysis" in c["content"]
         assert c["parent_id"] is None
 
-    async def test_ai_comment_contains_recommendations(
-        self, authed_client: AsyncClient
-    ):
+    async def test_ai_comment_contains_recommendations(self, authed_client: AsyncClient):
         resp = await authed_client.post("/api/tasks", json=TASK_PAYLOAD)
         task = resp.json()
 

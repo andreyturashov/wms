@@ -1,0 +1,42 @@
+repos:
+  # Python hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+        exclude: tsconfig.*\.json$
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^wms-core/
+      - id: ruff-format
+        files: ^wms-core/
+
+  # TypeScript/React hooks
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint
+        entry: bash -c 'cd wms-front && npx eslint --fix src/'
+        language: system
+        files: ^wms-front/src/.*\.(ts|tsx)$
+        types: [file]
+        pass_filenames: false
+
+      - id: tsc
+        name: tsc
+        entry: bash -c 'cd wms-front && npx tsc --noEmit'
+        language: system
+        files: ^wms-front/src/.*\.(ts|tsx)$
+        types: [file]
+        pass_filenames: false

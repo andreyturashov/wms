@@ -74,7 +74,7 @@ export const authApi = {
     const params = new URLSearchParams();
     params.append('username', data.email);
     params.append('password', data.password);
-    
+
     const result = await request<AuthResponse>(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

@@ -198,6 +198,7 @@ export function MentionTextarea({
  * Parse comment content and return React nodes with highlighted @mentions.
  * Known mention names are highlighted; unknown `@word` are left as plain text.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function renderMentionContent(
   content: string,
   users: User[],

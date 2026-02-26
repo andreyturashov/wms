@@ -1,12 +1,10 @@
 """Tests for the authentication API (/api/auth)."""
 
-import pytest
 from httpx import AsyncClient
 from jose import jwt
 
 from app.core.config import settings
 from tests.conftest import auth_headers, register_user
-
 
 # ---------------------------------------------------------------------------
 # POST /api/auth/register
@@ -89,9 +87,7 @@ class TestLogin:
 class TestMe:
     async def test_me_success(self, client: AsyncClient):
         data = await register_user(client, email="me@example.com", username="meuser")
-        resp = await client.get(
-            "/api/auth/me", headers=auth_headers(data["access_token"])
-        )
+        resp = await client.get("/api/auth/me", headers=auth_headers(data["access_token"]))
         assert resp.status_code == 200
         body = resp.json()
         assert body["email"] == "me@example.com"
@@ -107,9 +103,7 @@ class TestMe:
 
     async def test_me_token_without_sub(self, client: AsyncClient):
         """Token with valid JWT but no 'sub' claim should be rejected."""
-        token = jwt.encode(
-            {"data": "no-sub"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM
-        )
+        token = jwt.encode({"data": "no-sub"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
         resp = await client.get("/api/auth/me", headers=auth_headers(token))
         assert resp.status_code == 401
 
@@ -135,9 +129,7 @@ class TestCreateAccessToken:
         from app.api.auth import create_access_token
 
         token = create_access_token(data={"sub": "u1"})
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         assert payload["sub"] == "u1"
         assert "exp" in payload
 
@@ -168,9 +160,7 @@ class TestListUsers:
     async def test_list_users_success(self, client: AsyncClient):
         data = await register_user(client, email="u1@example.com", username="alice")
         await register_user(client, email="u2@example.com", username="bob")
-        resp = await client.get(
-            "/api/auth/users", headers=auth_headers(data["access_token"])
-        )
+        resp = await client.get("/api/auth/users", headers=auth_headers(data["access_token"]))
         assert resp.status_code == 200
         users = resp.json()
         assert len(users) == 2
@@ -181,9 +171,7 @@ class TestListUsers:
     async def test_list_users_ordered_by_username(self, client: AsyncClient):
         data = await register_user(client, email="z@example.com", username="zoe")
         await register_user(client, email="a@example.com", username="anna")
-        resp = await client.get(
-            "/api/auth/users", headers=auth_headers(data["access_token"])
-        )
+        resp = await client.get("/api/auth/users", headers=auth_headers(data["access_token"]))
         users = resp.json()
         assert users[0]["username"] == "anna"
         assert users[1]["username"] == "zoe"
@@ -194,9 +182,7 @@ class TestListUsers:
 
     async def test_list_users_response_shape(self, client: AsyncClient):
         data = await register_user(client, email="s@example.com", username="sam")
-        resp = await client.get(
-            "/api/auth/users", headers=auth_headers(data["access_token"])
-        )
+        resp = await client.get("/api/auth/users", headers=auth_headers(data["access_token"]))
         user = resp.json()[0]
         assert "id" in user
         assert "email" in user

@@ -1,17 +1,18 @@
-from contextlib import asynccontextmanager
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text, select
+from sqlalchemy import select, text
 
-# Import models BEFORE creating tables to ensure they are registered with Base
-from app.models import user, task, agent, comment
-from app.api import auth, tasks, agents, comments
 from app.admin import setup_admin
+from app.api import agents, auth, comments, tasks
 from app.core.config import settings
 from app.db.base import Base
-from app.db.session import engine, AsyncSessionLocal
+from app.db.session import AsyncSessionLocal, engine
+
+# Import models BEFORE creating tables to ensure they are registered with Base
+from app.models import agent, comment, task, user
 from app.models.agent import Agent
 
 _ = (user, task, agent, comment)
@@ -55,24 +56,15 @@ async def ensure_task_agent_fk_column(conn) -> None:
     columns = {row[1] for row in table_info.fetchall()}
     if "agent_id" not in columns:
         await conn.execute(text("ALTER TABLE tasks ADD COLUMN agent_id VARCHAR"))
-    await conn.execute(
-        text("CREATE INDEX IF NOT EXISTS ix_tasks_agent_id ON tasks (agent_id)")
-    )
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tasks_agent_id ON tasks (agent_id)"))
 
 
 async def ensure_task_assigned_user_fk_column(conn) -> None:
     table_info = await conn.execute(text("PRAGMA table_info(tasks)"))
     columns = {row[1] for row in table_info.fetchall()}
     if "assigned_user_id" not in columns:
-        await conn.execute(
-            text("ALTER TABLE tasks ADD COLUMN assigned_user_id VARCHAR")
-        )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS ix_tasks_assigned_user_id"
-            " ON tasks (assigned_user_id)"
-        )
-    )
+        await conn.execute(text("ALTER TABLE tasks ADD COLUMN assigned_user_id VARCHAR"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tasks_assigned_user_id ON tasks (assigned_user_id)"))
 
 
 async def seed_default_agents() -> None:
