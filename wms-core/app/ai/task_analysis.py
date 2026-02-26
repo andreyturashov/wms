@@ -12,21 +12,17 @@ key.  Replace `MockLLM` with a real chat model (e.g. `ChatOpenAI`) to go live.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 from typing import TypedDict
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langgraph.graph import END, StateGraph
-
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal
 from app.models.agent import Agent
 from app.models.comment import Comment
-
 
 # ---------------------------------------------------------------------------
 # Mock LLM – replace with a real model later
@@ -49,20 +45,18 @@ class MockLLM(BaseChatModel):
         **kwargs,
     ) -> ChatResult:
         # Extract task info from the last human message
-        prompt_text = messages[-1].content if messages else ""
+        _prompt_text = messages[-1].content if messages else ""
         response = (
-            f"**AI Analysis**\n\n"
-            f"I've reviewed the new task. Here are my recommendations:\n\n"
-            f"• **Priority assessment**: The described work appears well-scoped.\n"
-            f"• **Estimated effort**: Small to medium.\n"
-            f"• **Suggested next steps**: Break the task into subtasks if it "
-            f"grows beyond a single session.\n"
-            f"• **Dependencies**: None detected.\n\n"
-            f"_This analysis was generated automatically when the task was created._"
+            "**AI Analysis**\n\n"
+            "I've reviewed the new task. Here are my recommendations:\n\n"
+            "• **Priority assessment**: The described work appears well-scoped.\n"
+            "• **Estimated effort**: Small to medium.\n"
+            "• **Suggested next steps**: Break the task into subtasks if it "
+            "grows beyond a single session.\n"
+            "• **Dependencies**: None detected.\n\n"
+            "_This analysis was generated automatically when the task was created._"
         )
-        return ChatResult(
-            generations=[ChatGeneration(message=AIMessage(content=response))]
-        )
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=response))])
 
 
 # ---------------------------------------------------------------------------
@@ -161,9 +155,7 @@ async def analyse_task_and_comment(
 
     # 2. Persist as a comment authored by the Assistant Agent
     async with _session_factory() as db:
-        agent = (
-            await db.execute(select(Agent).where(Agent.key == ASSISTANT_AGENT_KEY))
-        ).scalar_one_or_none()
+        agent = (await db.execute(select(Agent).where(Agent.key == ASSISTANT_AGENT_KEY))).scalar_one_or_none()
 
         if not agent:
             return  # agent not seeded yet – skip silently

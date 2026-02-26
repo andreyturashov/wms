@@ -1,5 +1,4 @@
 import uuid
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -22,23 +21,17 @@ comments_router = APIRouter()
 
 @comments_router.get("", response_model=list[CommentResponse])
 async def get_comments_by_author(
-    user_id: Optional[str] = Query(None),
-    agent_id: Optional[str] = Query(None),
+    user_id: str | None = Query(None),
+    agent_id: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Return all comments authored by a given user or agent (across tasks owned by current user)."""
     if not user_id and not agent_id:
-        raise HTTPException(
-            status_code=400, detail="Provide user_id or agent_id query parameter"
-        )
+        raise HTTPException(status_code=400, detail="Provide user_id or agent_id query parameter")
 
     # Only return comments on tasks owned by the current user
-    query = (
-        select(Comment)
-        .join(Task, Comment.task_id == Task.id)
-        .where(Task.user_id == current_user.id)
-    )
+    query = select(Comment).join(Task, Comment.task_id == Task.id).where(Task.user_id == current_user.id)
 
     if user_id:
         query = query.where(Comment.user_id == user_id)
@@ -58,9 +51,7 @@ async def get_task_comments(
     db: AsyncSession = Depends(get_db),
 ):
     # Verify task belongs to the user
-    result = await db.execute(
-        select(Task).where(Task.id == task_id, Task.user_id == current_user.id)
-    )
+    result = await db.execute(select(Task).where(Task.id == task_id, Task.user_id == current_user.id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -86,9 +77,7 @@ async def create_task_comment(
     db: AsyncSession = Depends(get_db),
 ):
     # Verify task belongs to the user
-    result = await db.execute(
-        select(Task).where(Task.id == task_id, Task.user_id == current_user.id)
-    )
+    result = await db.execute(select(Task).where(Task.id == task_id, Task.user_id == current_user.id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -120,24 +109,16 @@ async def create_task_comment(
     # Validate parent_id if provided
     if payload.parent_id:
         parent_result = await db.execute(
-            select(Comment).where(
-                Comment.id == payload.parent_id, Comment.task_id == task_id
-            )
+            select(Comment).where(Comment.id == payload.parent_id, Comment.task_id == task_id)
         )
         if not parent_result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=400, detail="Parent comment not found in this task"
-            )
+            raise HTTPException(status_code=400, detail="Parent comment not found in this task")
         comment.parent_id = payload.parent_id
 
     db.add(comment)
     await db.commit()
     # Re-fetch with relationships loaded
-    result = await db.execute(
-        select(Comment)
-        .where(Comment.id == comment.id)
-        .options(selectinload(Comment.replies))
-    )
+    result = await db.execute(select(Comment).where(Comment.id == comment.id).options(selectinload(Comment.replies)))
     return result.scalar_one()
 
 
@@ -152,15 +133,11 @@ async def delete_task_comment(
     db: AsyncSession = Depends(get_db),
 ):
     # Verify task belongs to the user
-    result = await db.execute(
-        select(Task).where(Task.id == task_id, Task.user_id == current_user.id)
-    )
+    result = await db.execute(select(Task).where(Task.id == task_id, Task.user_id == current_user.id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Task not found")
 
-    result = await db.execute(
-        select(Comment).where(Comment.id == comment_id, Comment.task_id == task_id)
-    )
+    result = await db.execute(select(Comment).where(Comment.id == comment_id, Comment.task_id == task_id))
     comment = result.scalar_one_or_none()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")

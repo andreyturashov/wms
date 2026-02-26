@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.db.base import Base
 from app.main import (
-    DEFAULT_AGENTS,
     backfill_task_agent_ids,
     create_tables,
     ensure_task_agent_fk_column,
@@ -16,7 +15,6 @@ from app.main import (
     seed_default_agents,
 )
 from app.models.agent import Agent
-from app.models.task import Task
 from app.models.user import User
 
 # We need a SEPARATE in-memory engine so we don't interfere with conftest's.
@@ -30,8 +28,8 @@ _TestSession = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit
 @pytest.fixture(autouse=True)
 async def _patch_session(monkeypatch):
     """Redirect app.main and app.db.session to our private in-memory engine."""
-    import app.main as main_mod
     import app.db.session as sess_mod
+    import app.main as main_mod
 
     monkeypatch.setattr(main_mod, "engine", _engine)
     monkeypatch.setattr(main_mod, "AsyncSessionLocal", _TestSession)
@@ -162,17 +160,13 @@ class TestBackfillAgentIds:
 
         # Add a legacy assigned_agent column
         async with _engine.begin() as conn:
-            await conn.execute(
-                text("ALTER TABLE tasks ADD COLUMN assigned_agent VARCHAR")
-            )
+            await conn.execute(text("ALTER TABLE tasks ADD COLUMN assigned_agent VARCHAR"))
 
         # Create a user and a task with only assigned_agent set
         user_id = str(uuid.uuid4())
         task_id = str(uuid.uuid4())
         async with _TestSession() as db:
-            db.add(
-                User(id=user_id, email="bf@test.com", username="bf", password_hash="x")
-            )
+            db.add(User(id=user_id, email="bf@test.com", username="bf", password_hash="x"))
             await db.flush()
             await db.execute(
                 text(
@@ -194,9 +188,7 @@ class TestBackfillAgentIds:
 
         # Verify agent_id was set
         async with _TestSession() as db:
-            result = await db.execute(
-                text("SELECT agent_id FROM tasks WHERE id = :id"), {"id": task_id}
-            )
+            result = await db.execute(text("SELECT agent_id FROM tasks WHERE id = :id"), {"id": task_id})
             row = result.fetchone()
         assert row is not None
         assert row[0] is not None  # agent_id should be populated

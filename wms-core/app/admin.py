@@ -1,21 +1,20 @@
 """SQLAdmin configuration – provides a web-based admin panel at /admin."""
 
+from datetime import timedelta
+
+from jose import JWTError, jwt
 from sqladmin import Admin, ModelView
 from sqladmin.authentication import AuthenticationBackend
+from sqlalchemy import select
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
-from sqlalchemy import select
 
-from app.api.auth import verify_password, create_access_token, settings
+from app.api.auth import create_access_token, settings, verify_password
 from app.db.session import AsyncSessionLocal
 from app.models.agent import Agent
 from app.models.comment import Comment
 from app.models.task import Task
 from app.models.user import User
-
-from datetime import timedelta
-from jose import JWTError, jwt
-
 
 # ---------------------------------------------------------------------------
 # Authentication backend – uses the existing users table + JWT tokens
@@ -51,9 +50,7 @@ class AdminAuth(AuthenticationBackend):
         if not token:
             return RedirectResponse(request.url_for("admin:login"), status_code=302)
         try:
-            payload = jwt.decode(
-                token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-            )
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
             if payload.get("sub") is None:
                 return RedirectResponse(request.url_for("admin:login"), status_code=302)
         except JWTError:

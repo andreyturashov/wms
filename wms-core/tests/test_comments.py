@@ -5,7 +5,6 @@ from httpx import AsyncClient
 
 from tests.conftest import auth_headers, register_user
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -125,9 +124,7 @@ class TestCreateComment:
     async def test_create_as_agent(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
         agent_id = await get_agent_id(authed_client)
-        comment = await create_comment(
-            authed_client, task["id"], content="Agent says hi", agent_id=agent_id
-        )
+        comment = await create_comment(authed_client, task["id"], content="Agent says hi", agent_id=agent_id)
 
         assert comment["content"] == "Agent says hi"
         assert comment["user_id"] is None
@@ -137,9 +134,7 @@ class TestCreateComment:
 
     async def test_empty_content(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.post(
-            f"/api/tasks/{task['id']}/comments", json={"content": "   "}
-        )
+        resp = await authed_client.post(f"/api/tasks/{task['id']}/comments", json={"content": "   "})
         assert resp.status_code == 400
         assert "empty" in resp.json()["detail"].lower()
 
@@ -153,9 +148,7 @@ class TestCreateComment:
         assert "agent" in resp.json()["detail"].lower()
 
     async def test_task_not_found(self, authed_client: AsyncClient):
-        resp = await authed_client.post(
-            "/api/tasks/nonexistent/comments", json={"content": "test"}
-        )
+        resp = await authed_client.post("/api/tasks/nonexistent/comments", json={"content": "test"})
         assert resp.status_code == 404
 
     async def test_other_users_task(self, client: AsyncClient):
@@ -166,9 +159,7 @@ class TestCreateComment:
         user_b = await register_user(client, email="b@test.com", username="userB")
         client.headers.update(auth_headers(user_b["access_token"]))
 
-        resp = await client.post(
-            f"/api/tasks/{task['id']}/comments", json={"content": "sneaky"}
-        )
+        resp = await client.post(f"/api/tasks/{task['id']}/comments", json={"content": "sneaky"})
         assert resp.status_code == 404
 
     async def test_content_is_trimmed(self, authed_client: AsyncClient):
@@ -177,9 +168,7 @@ class TestCreateComment:
         assert comment["content"] == "padded"
 
     async def test_unauthenticated(self, client: AsyncClient):
-        resp = await client.post(
-            "/api/tasks/some-id/comments", json={"content": "test"}
-        )
+        resp = await client.post("/api/tasks/some-id/comments", json={"content": "test"})
         assert resp.status_code == 401
 
 
@@ -193,9 +182,7 @@ class TestDeleteComment:
         task = await create_task(authed_client)
         comment = await create_comment(authed_client, task["id"])
 
-        resp = await authed_client.delete(
-            f"/api/tasks/{task['id']}/comments/{comment['id']}"
-        )
+        resp = await authed_client.delete(f"/api/tasks/{task['id']}/comments/{comment['id']}")
         assert resp.status_code == 204
 
         # Verify it's gone – only the AI auto-comment remains
@@ -206,9 +193,7 @@ class TestDeleteComment:
 
     async def test_delete_nonexistent_comment(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.delete(
-            f"/api/tasks/{task['id']}/comments/nonexistent"
-        )
+        resp = await authed_client.delete(f"/api/tasks/{task['id']}/comments/nonexistent")
         assert resp.status_code == 404
 
     async def test_delete_task_not_found(self, authed_client: AsyncClient):
@@ -230,13 +215,9 @@ class TestDeleteComment:
     async def test_delete_agent_comment(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
         agent_id = await get_agent_id(authed_client)
-        comment = await create_comment(
-            authed_client, task["id"], content="agent note", agent_id=agent_id
-        )
+        comment = await create_comment(authed_client, task["id"], content="agent note", agent_id=agent_id)
 
-        resp = await authed_client.delete(
-            f"/api/tasks/{task['id']}/comments/{comment['id']}"
-        )
+        resp = await authed_client.delete(f"/api/tasks/{task['id']}/comments/{comment['id']}")
         assert resp.status_code == 204
 
     async def test_unauthenticated(self, client: AsyncClient):
@@ -295,9 +276,7 @@ class TestGetCommentsByAuthor:
     async def test_get_by_agent_id(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
         agent_id = await get_agent_id(authed_client)
-        await create_comment(
-            authed_client, task["id"], content="agent comment", agent_id=agent_id
-        )
+        await create_comment(authed_client, task["id"], content="agent comment", agent_id=agent_id)
 
         resp = await authed_client.get(f"/api/comments?agent_id={agent_id}")
         assert resp.status_code == 200
@@ -387,7 +366,7 @@ class TestThreadedComments:
         comments = resp.json()
         # AI auto-comment + the parent (top-level only)
         assert len(comments) == 2
-        user_comment = [c for c in comments if c["id"] == parent["id"]][0]
+        user_comment = next(c for c in comments if c["id"] == parent["id"])
         assert len(user_comment["replies"]) == 1
         assert user_comment["replies"][0]["content"] == "nested"
 
@@ -424,9 +403,7 @@ class TestThreadedComments:
             json={"content": "child", "parent_id": parent["id"]},
         )
         # Delete parent
-        resp = await authed_client.delete(
-            f"/api/tasks/{task['id']}/comments/{parent['id']}"
-        )
+        resp = await authed_client.delete(f"/api/tasks/{task['id']}/comments/{parent['id']}")
         assert resp.status_code == 204
         # Only the AI auto-comment remains
         resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")

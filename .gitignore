@@ -38,3 +38,5 @@ Thumbs.db
 *.log
 
 /wms-core/.coverage
+/wms-core/coverage.json
+/wms-core/coverage.xml

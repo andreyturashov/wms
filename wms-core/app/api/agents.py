@@ -1,4 +1,3 @@
-from typing import List
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -14,7 +13,7 @@ from app.schemas.agent import AgentCreate, AgentResponse
 router = APIRouter()
 
 
-@router.get("", response_model=List[AgentResponse])
+@router.get("", response_model=list[AgentResponse])
 async def get_agents(
     active_only: bool = False,
     _: User = Depends(get_current_user),

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { Agent, Task, User } from '../types';
 import { tasksApi } from '../api';
 import { CommentSection } from './CommentSection';
@@ -246,7 +247,14 @@ export function TaskCard({ task, agents, users, currentUser, onUpdate, onDelete 
       }`}
     >
       <div className="flex justify-between items-start mb-2">
-        <h3 className="font-semibold text-gray-800 text-sm">{task.title}</h3>
+        <Link
+          to={`/tasks/${task.id}`}
+          className="font-semibold text-gray-800 text-sm hover:text-blue-600 hover:underline"
+          onClick={(e) => e.stopPropagation()}
+          title="Open task"
+        >
+          {task.title}
+        </Link>
         <div className="flex gap-1">
           <button
             onClick={startEditing}
@@ -306,7 +314,7 @@ export function TaskCard({ task, agents, users, currentUser, onUpdate, onDelete 
         </div>
       </div>
       {showComments && currentUser && (
-        <CommentSection taskId={task.id} agents={agents} currentUser={currentUser} />
+        <CommentSection taskId={task.id} agents={agents} users={users} currentUser={currentUser} />
       )}
     </div>
   );

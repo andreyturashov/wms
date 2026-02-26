@@ -1,24 +1,22 @@
 """Tests for Pydantic schemas and SQLAlchemy models."""
 
-import uuid
 from datetime import datetime
 
 import pytest
 
-from app.schemas.task import (
-    TaskBase,
-    TaskCreate,
-    TaskUpdate,
-    TaskStatusUpdate,
-    TaskAssignmentUpdate,
-    TaskResponse,
-)
-from app.schemas.user import UserCreate, UserResponse, Token
-from app.schemas.agent import AgentBase, AgentCreate, AgentResponse
+from app.models.agent import Agent as AgentModel
 from app.models.task import Task as TaskModel
 from app.models.user import User as UserModel
-from app.models.agent import Agent as AgentModel
-
+from app.schemas.agent import AgentBase, AgentCreate, AgentResponse
+from app.schemas.task import (
+    TaskAssignmentUpdate,
+    TaskBase,
+    TaskCreate,
+    TaskResponse,
+    TaskStatusUpdate,
+    TaskUpdate,
+)
+from app.schemas.user import Token, UserCreate, UserResponse
 
 # ---------------------------------------------------------------------------
 # Task schemas

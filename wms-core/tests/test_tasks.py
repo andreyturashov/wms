@@ -1,10 +1,8 @@
 """Tests for the tasks API (/api/tasks)."""
 
-import pytest
 from httpx import AsyncClient
 
 from tests.conftest import auth_headers, register_user
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -58,17 +56,13 @@ class TestCreateTask:
         assert task["agent_id"] == agent_id
         assert task["assigned_agent"] == "task_automation"
 
-    async def test_create_task_with_assigned_agent_key(
-        self, authed_client: AsyncClient
-    ):
+    async def test_create_task_with_assigned_agent_key(self, authed_client: AsyncClient):
         task = await create_task(authed_client, assigned_agent="notification")
         assert task["assigned_agent"] == "notification"
         assert task["agent_id"] is not None
 
     async def test_create_task_invalid_agent_id(self, authed_client: AsyncClient):
-        resp = await authed_client.post(
-            "/api/tasks", json={**TASK_PAYLOAD, "agent_id": "nonexistent"}
-        )
+        resp = await authed_client.post("/api/tasks", json={**TASK_PAYLOAD, "agent_id": "nonexistent"})
         assert resp.status_code == 400
 
     async def test_create_task_with_due_date(self, authed_client: AsyncClient):
@@ -90,9 +84,7 @@ class TestCreateTask:
         assert resp.status_code == 401
 
     async def test_create_task_missing_title(self, authed_client: AsyncClient):
-        resp = await authed_client.post(
-            "/api/tasks", json={"description": "no title here", "status": "todo"}
-        )
+        resp = await authed_client.post("/api/tasks", json={"description": "no title here", "status": "todo"})
         assert resp.status_code == 422
 
     async def test_create_task_invalid_agent_key(self, authed_client: AsyncClient):
@@ -167,9 +159,7 @@ class TestGetTask:
         task_id = resp.json()["id"]
 
         b = await register_user(client, email="other@x.com", username="other")
-        resp = await client.get(
-            f"/api/tasks/{task_id}", headers=auth_headers(b["access_token"])
-        )
+        resp = await client.get(f"/api/tasks/{task_id}", headers=auth_headers(b["access_token"]))
         assert resp.status_code == 404
 
 
@@ -181,61 +171,47 @@ class TestGetTask:
 class TestUpdateTask:
     async def test_update_title(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.put(
-            f"/api/tasks/{task['id']}", json={"title": "Updated"}
-        )
+        resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"title": "Updated"})
         assert resp.status_code == 200
         assert resp.json()["title"] == "Updated"
 
     async def test_update_description(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.put(
-            f"/api/tasks/{task['id']}", json={"description": "New desc"}
-        )
+        resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"description": "New desc"})
         assert resp.status_code == 200
         assert resp.json()["description"] == "New desc"
 
     async def test_update_priority(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.put(
-            f"/api/tasks/{task['id']}", json={"priority": "high"}
-        )
+        resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"priority": "high"})
         assert resp.status_code == 200
         assert resp.json()["priority"] == "high"
 
     async def test_update_agent_by_id(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
         agent_id = await get_agent_id(authed_client, "analytics")
-        resp = await authed_client.put(
-            f"/api/tasks/{task['id']}", json={"agent_id": agent_id}
-        )
+        resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"agent_id": agent_id})
         assert resp.status_code == 200
         assert resp.json()["agent_id"] == agent_id
         assert resp.json()["assigned_agent"] == "analytics"
 
     async def test_update_agent_by_key(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.put(
-            f"/api/tasks/{task['id']}", json={"assigned_agent": "assistant"}
-        )
+        resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"assigned_agent": "assistant"})
         assert resp.status_code == 200
         assert resp.json()["assigned_agent"] == "assistant"
 
     async def test_unassign_agent(self, authed_client: AsyncClient):
         agent_id = await get_agent_id(authed_client)
         task = await create_task(authed_client, agent_id=agent_id)
-        resp = await authed_client.put(
-            f"/api/tasks/{task['id']}", json={"agent_id": None}
-        )
+        resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"agent_id": None})
         assert resp.status_code == 200
         assert resp.json()["agent_id"] is None
         assert resp.json()["assigned_agent"] is None
 
     async def test_update_due_date(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.put(
-            f"/api/tasks/{task['id']}", json={"due_date": "2026-06-15"}
-        )
+        resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"due_date": "2026-06-15"})
         assert resp.status_code == 200
         assert resp.json()["due_date"] == "2026-06-15"
 
@@ -317,31 +293,23 @@ class TestDeleteTask:
 class TestUpdateStatus:
     async def test_update_status_success(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.put(
-            f"/api/tasks/{task['id']}/status", json={"status": "in_progress"}
-        )
+        resp = await authed_client.put(f"/api/tasks/{task['id']}/status", json={"status": "in_progress"})
         assert resp.status_code == 200
         assert resp.json()["status"] == "in_progress"
 
     async def test_update_status_to_done(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.put(
-            f"/api/tasks/{task['id']}/status", json={"status": "done"}
-        )
+        resp = await authed_client.put(f"/api/tasks/{task['id']}/status", json={"status": "done"})
         assert resp.status_code == 200
         assert resp.json()["status"] == "done"
 
     async def test_update_status_invalid(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.put(
-            f"/api/tasks/{task['id']}/status", json={"status": "invalid_status"}
-        )
+        resp = await authed_client.put(f"/api/tasks/{task['id']}/status", json={"status": "invalid_status"})
         assert resp.status_code == 422
 
     async def test_update_status_not_found(self, authed_client: AsyncClient):
-        resp = await authed_client.put(
-            "/api/tasks/nonexistent/status", json={"status": "done"}
-        )
+        resp = await authed_client.put("/api/tasks/nonexistent/status", json={"status": "done"})
         assert resp.status_code == 404
 
 
@@ -354,9 +322,7 @@ class TestAssignAgent:
     async def test_assign_by_agent_id(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
         agent_id = await get_agent_id(authed_client, "notification")
-        resp = await authed_client.put(
-            f"/api/tasks/{task['id']}/assign", json={"agent_id": agent_id}
-        )
+        resp = await authed_client.put(f"/api/tasks/{task['id']}/assign", json={"agent_id": agent_id})
         assert resp.status_code == 200
         assert resp.json()["agent_id"] == agent_id
         assert resp.json()["assigned_agent"] == "notification"
@@ -381,9 +347,7 @@ class TestAssignAgent:
         assert resp.json()["agent_id"] is None
 
     async def test_assign_not_found(self, authed_client: AsyncClient):
-        resp = await authed_client.put(
-            "/api/tasks/nonexistent/assign", json={"agent_id": None}
-        )
+        resp = await authed_client.put("/api/tasks/nonexistent/assign", json={"agent_id": None})
         assert resp.status_code == 404
 
 

@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   test:
     name: Backend Tests
@@ -28,8 +32,16 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Run tests
-        run: uv run pytest -n auto -v
+      - name: Run tests with coverage
+        run: uv run pytest -n auto -v --cov --cov-report=term-missing --cov-report=xml:coverage.xml
+
+      - name: Generate coverage report
+        if: github.event_name == 'pull_request'
+        uses: orgoro/coverage@v3.2
+        with:
+          coverageFile: wms-core/coverage.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          thresholdAll: 0
 
   test-frontend:
     name: Frontend Tests
@@ -51,5 +63,11 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Run tests
-        run: npx vitest run
+      - name: Run tests with coverage
+        run: npx vitest run --coverage.enabled --coverage.provider=v8 --coverage.reporter=json-summary --coverage.reporter=text --coverage.reportOnFailure
+
+      - name: Generate coverage report
+        if: github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          working-directory: wms-front

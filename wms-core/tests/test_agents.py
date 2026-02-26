@@ -1,10 +1,6 @@
 """Tests for the agents API (/api/agents)."""
 
-import pytest
 from httpx import AsyncClient
-
-from tests.conftest import register_user, auth_headers
-
 
 # ---------------------------------------------------------------------------
 # GET /api/agents

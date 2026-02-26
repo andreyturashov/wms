@@ -5,7 +5,7 @@ GREEN = \033[0;32m
 YELLOW = \033[1;33m
 NC = \033[0m # No Color
 
-.PHONY: help install install-backend install-frontend run start-backend start-frontend stop clean test test-frontend test-all test-cov
+.PHONY: help install install-backend install-frontend run start-backend start-frontend stop clean test test-frontend test-all test-cov lint pre-commit-install
 
 help:
 	@echo "$(GREEN)WMS Project Makefile$(NC)"
@@ -19,6 +19,8 @@ help:
 	@echo "  make clean            - Clean up database and cache files"
 	@echo "  make test             - Run backend tests"	@echo "  make test-frontend    - Run frontend tests"
 	@echo "  make test-all         - Run all tests (backend + frontend)"	@echo "  make test-cov         - Run backend tests with coverage report"
+	@echo "  make lint             - Run all linters (ruff + eslint + tsc)"
+	@echo "  make pre-commit-install - Install pre-commit hooks"
 	@echo ""
 
 install: install-backend install-frontend
@@ -80,3 +82,16 @@ test-cov:
 	@echo "$(YELLOW)Running backend tests with coverage...$(NC)"
 	cd wms-core && uv run pytest -n auto --cov --cov-report=term-missing -v
 	@echo "$(GREEN)Tests with coverage complete!$(NC)"
+
+lint:
+	@echo "$(YELLOW)Running linters...$(NC)"
+	cd wms-core && uv run ruff check --fix .
+	cd wms-core && uv run ruff format .
+	cd wms-front && /bin/bash -c "source ~/.nvm/nvm.sh && nvm use 22 && npx eslint --fix src/"
+	cd wms-front && /bin/bash -c "source ~/.nvm/nvm.sh && nvm use 22 && npx tsc --noEmit"
+	@echo "$(GREEN)Linting complete!$(NC)"
+
+pre-commit-install:
+	@echo "$(YELLOW)Installing pre-commit hooks...$(NC)"
+	cd wms-core && uv run pre-commit install
+	@echo "$(GREEN)Pre-commit hooks installed!$(NC)"

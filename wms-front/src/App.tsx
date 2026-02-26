@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Column, TaskModal, Sidebar, CommentPanel } from './components';
+import { Routes, Route } from 'react-router-dom';
+import { Column, TaskModal, Sidebar, CommentPanel, TaskPage } from './components';
 import type { AuthorSelection } from './components';
 import { tasksApi, authApi, agentsApi, usersApi } from './api';
 import type { Task, CreateTaskRequest, LoginRequest, RegisterRequest, Agent, User } from './types';
@@ -161,6 +162,11 @@ function App() {
   }
 
   return (
+    <Routes>
+      <Route path="/tasks/:taskId" element={<TaskPage />} />
+      <Route
+        path="*"
+        element={
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
         <div className="max-w-screen-2xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -263,6 +269,9 @@ function App() {
         users={users}
       />
     </div>
+        }
+      />
+    </Routes>
   );
 }
 

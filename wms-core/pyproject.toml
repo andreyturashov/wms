@@ -26,10 +26,13 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx>=0.27.0",
+    "mypy>=1.19.1",
+    "pre-commit>=4.5.1",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
     "pytest-xdist>=3.5.0",
+    "ruff>=0.15.3",
 ]
 
 [tool.pytest.ini_options]
@@ -53,3 +56,39 @@ exclude_lines = [
     "@asynccontextmanager",
     "async def lifespan",
 ]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+src = ["app"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "UP",    # pyupgrade
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults (FastAPI Depends)
+    "RUF002", # ambiguous unicode in docstrings (en-dashes are intentional)
+    "RUF003", # ambiguous unicode in comments (en-dashes are intentional)
+    "RUF012", # mutable class attrs without ClassVar (sqladmin pattern)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402", "B017", "SIM105"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
