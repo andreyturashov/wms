@@ -70,8 +70,9 @@ export function TaskModal({ isOpen, onClose, onSubmit, task, agents, users }: Ta
         <h2 className="text-xl font-bold mb-4">{task ? 'Edit Task' : 'Create New Task'}</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <label htmlFor="task-title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
             <input
+              id="task-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -80,8 +81,9 @@ export function TaskModal({ isOpen, onClose, onSubmit, task, agents, users }: Ta
             />
           </div>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label htmlFor="task-description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
+              id="task-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -90,8 +92,9 @@ export function TaskModal({ isOpen, onClose, onSubmit, task, agents, users }: Ta
           </div>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label htmlFor="task-status" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <select
+                id="task-status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as Task['status'])}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -102,8 +105,9 @@ export function TaskModal({ isOpen, onClose, onSubmit, task, agents, users }: Ta
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+              <label htmlFor="task-priority" className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
               <select
+                id="task-priority"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as Task['priority'])}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -115,8 +119,9 @@ export function TaskModal({ isOpen, onClose, onSubmit, task, agents, users }: Ta
             </div>
           </div>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
+            <label htmlFor="task-assignee" className="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
             <select
+              id="task-assignee"
               value={assignee}
               onChange={(e) => setAssignee(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -143,8 +148,9 @@ export function TaskModal({ isOpen, onClose, onSubmit, task, agents, users }: Ta
             </select>
           </div>
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+            <label htmlFor="task-due-date" className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
             <input
+              id="task-due-date"
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
