@@ -39,3 +39,4 @@ Thumbs.db
 
 /wms-core/.coverage
 /wms-core/coverage.json
+/wms-core/coverage.xml
