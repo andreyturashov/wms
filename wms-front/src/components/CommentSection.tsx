@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Agent, Comment, User } from '../types';
 import { commentsApi } from '../api';
+import { MentionTextarea, renderMentionContent } from './MentionTextarea';
 
 interface CommentSectionProps {
   taskId: string;
   agents: Agent[];
+  users: User[];
   currentUser: User;
 }
 
-export function CommentSection({ taskId, agents, currentUser }: CommentSectionProps) {
+export function CommentSection({ taskId, agents, users, currentUser }: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [newContent, setNewContent] = useState('');
@@ -135,7 +137,7 @@ export function CommentSection({ taskId, agents, currentUser }: CommentSectionPr
               ✕
             </button>
           </div>
-          <p className="text-gray-600 whitespace-pre-wrap break-words">{c.content}</p>
+          <p className="text-gray-600 whitespace-pre-wrap break-words">{renderMentionContent(c.content, users, agents)}</p>
         </div>
       </div>
       {c.replies?.length > 0 && (
@@ -177,13 +179,15 @@ export function CommentSection({ taskId, agents, currentUser }: CommentSectionPr
       {/* New comment form */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-1">
         <div className="flex gap-1">
-          <textarea
+          <MentionTextarea
             value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
+            onChange={setNewContent}
             onKeyDown={handleKeyDown}
-            placeholder={replyTo ? `Reply to ${replyTo.author_name}…` : 'Write a comment…'}
+            placeholder={replyTo ? `Reply to ${replyTo.author_name}…` : 'Write a comment… (type @ to mention)'}
             rows={2}
             className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            users={users}
+            agents={agents}
           />
         </div>
         <div className="flex items-center gap-2">

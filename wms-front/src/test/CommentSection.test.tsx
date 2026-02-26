@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CommentSection } from '../components/CommentSection';
-import { mockUser, mockAgent, mockComment, mockCommentWithReplies } from './fixtures';
+import { mockUser, mockUser2, mockAgent, mockComment, mockCommentWithReplies } from './fixtures';
 
 // Mock the API module
 vi.mock('../api', () => ({
@@ -23,6 +23,7 @@ describe('CommentSection', () => {
   const defaultProps = {
     taskId: 'task-1',
     agents: [mockAgent],
+    users: [mockUser, mockUser2],
     currentUser: mockUser,
   };
 
@@ -96,7 +97,7 @@ describe('CommentSection', () => {
     render(<CommentSection {...defaultProps} />);
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Write a comment…')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Write a comment… (type @ to mention)')).toBeInTheDocument();
     });
   });
 
@@ -132,10 +133,10 @@ describe('CommentSection', () => {
     render(<CommentSection {...defaultProps} />);
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Write a comment…')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Write a comment… (type @ to mention)')).toBeInTheDocument();
     });
 
-    const textarea = screen.getByPlaceholderText('Write a comment…');
+    const textarea = screen.getByPlaceholderText('Write a comment… (type @ to mention)');
     await user.type(textarea, 'Hello world');
     await user.click(screen.getByText('Send'));
 
@@ -198,7 +199,7 @@ describe('CommentSection', () => {
 
     // Reply indicator should be gone, placeholder resets
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Write a comment…')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Write a comment… (type @ to mention)')).toBeInTheDocument();
     });
   });
 

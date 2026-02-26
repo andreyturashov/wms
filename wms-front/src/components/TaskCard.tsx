@@ -306,7 +306,7 @@ export function TaskCard({ task, agents, users, currentUser, onUpdate, onDelete 
         </div>
       </div>
       {showComments && currentUser && (
-        <CommentSection taskId={task.id} agents={agents} currentUser={currentUser} />
+        <CommentSection taskId={task.id} agents={agents} users={users} currentUser={currentUser} />
       )}
     </div>
   );
