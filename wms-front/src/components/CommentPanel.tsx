@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { Agent, Comment, User } from '../types';
-import { commentsApi } from '../api';
+import type { Agent, Comment, Task, User } from '../types';
+import { commentsApi, tasksApi } from '../api';
 import { MentionTextarea, renderMentionContent } from './MentionTextarea';
 
 export type AuthorSelection =
@@ -14,14 +14,17 @@ interface CommentPanelProps {
   agents: Agent[];
   users: User[];
   currentUser: User | null;
+  onTaskCreated?: (task: Task) => void;
 }
 
-export function CommentPanel({ selection, agents, users, currentUser }: CommentPanelProps) {
+export function CommentPanel({ selection, agents, users, currentUser, onTaskCreated }: CommentPanelProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [taskContent, setTaskContent] = useState('');
+  const [creatingTask, setCreatingTask] = useState(false);
 
   useEffect(() => {
     if (!selection) {
@@ -78,6 +81,37 @@ export function CommentPanel({ selection, agents, users, currentUser }: CommentP
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       void handleReply(comment);
+    }
+  };
+
+  const handleCreateTask = async () => {
+    if (!taskContent.trim() || creatingTask || !selection) return;
+    setCreatingTask(true);
+    try {
+      const lines = taskContent.trim().split('\n');
+      const title = lines[0];
+      const description = lines.slice(1).join('\n').trim();
+      const newTask = await tasksApi.create({
+        title,
+        description,
+        status: 'todo',
+        priority: 'medium',
+        agent_id: selection.type === 'agent' ? selection.id : null,
+        assigned_user_id: selection.type === 'user' ? selection.id : null,
+      });
+      setTaskContent('');
+      onTaskCreated?.(newTask);
+    } catch (err) {
+      console.error('Failed to create task:', err);
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
+  const handleTaskKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      void handleCreateTask();
     }
   };
 
@@ -181,6 +215,32 @@ export function CommentPanel({ selection, agents, users, currentUser }: CommentP
           </div>
         )}
       </div>
+
+      {/* Create task form */}
+      {currentUser && (
+        <div className="p-3 border-t border-gray-200">
+          <p className="text-[10px] text-gray-500 mb-1">
+            Create a task assigned to {selection.name} (first line = title)
+          </p>
+          <textarea
+            value={taskContent}
+            onChange={(e) => setTaskContent(e.target.value)}
+            onKeyDown={handleTaskKeyDown}
+            placeholder={`Task title for ${selection.name}…\nOptional description`}
+            rows={2}
+            className="w-full text-xs px-2 py-1 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <div className="flex justify-end mt-1">
+            <button
+              onClick={() => void handleCreateTask()}
+              disabled={creatingTask || !taskContent.trim()}
+              className="text-xs px-2 py-0.5 text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+            >
+              {creatingTask ? '…' : '+ Create Task'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

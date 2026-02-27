@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { CommentPanel } from '../components/CommentPanel';
-import { mockComment, mockUser, mockUser2, mockAgent, mockAgent2 } from './fixtures';
+import { mockComment, mockTask, mockUser, mockUser2, mockAgent, mockAgent2 } from './fixtures';
 
 // Mock the API module
 vi.mock('../api', () => ({
@@ -11,12 +11,16 @@ vi.mock('../api', () => ({
     getByAuthor: vi.fn(),
     create: vi.fn(),
   },
+  tasksApi: {
+    create: vi.fn(),
+  },
 }));
 
-import { commentsApi } from '../api';
+import { commentsApi, tasksApi } from '../api';
 
 const mockGetByAuthor = vi.mocked(commentsApi.getByAuthor);
 const mockCreate = vi.mocked(commentsApi.create);
+const mockTaskCreate = vi.mocked(tasksApi.create);
 
 const defaultProps = {
   agents: [mockAgent, mockAgent2],
@@ -221,5 +225,97 @@ describe('CommentPanel', () => {
     expect(screen.getByPlaceholderText(/Reply to alice/)).toBeInTheDocument();
     await user.click(screen.getByText('Cancel'));
     expect(screen.queryByPlaceholderText(/Reply to alice/)).not.toBeInTheDocument();
+  });
+
+  it('shows create task form when user is logged in', async () => {
+    mockGetByAuthor.mockResolvedValueOnce([]);
+    renderPanel({
+      selection: { type: 'user', id: 'user-1', name: 'alice' },
+      ...defaultProps,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Create a task assigned to alice/)).toBeInTheDocument();
+    });
+    expect(screen.getByPlaceholderText(/Task title for alice/)).toBeInTheDocument();
+    expect(screen.getByText('+ Create Task')).toBeInTheDocument();
+  });
+
+  it('creates a task assigned to the selected user', async () => {
+    const user = userEvent.setup();
+    const onTaskCreated = vi.fn();
+    mockGetByAuthor.mockResolvedValueOnce([]);
+    mockTaskCreate.mockResolvedValueOnce(mockTask);
+
+    renderPanel({
+      selection: { type: 'user', id: 'user-1', name: 'alice' },
+      ...defaultProps,
+      onTaskCreated,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Task title for alice/)).toBeInTheDocument();
+    });
+
+    const textarea = screen.getByPlaceholderText(/Task title for alice/);
+    await user.type(textarea, 'New task title\nSome description');
+    await user.click(screen.getByText('+ Create Task'));
+
+    await waitFor(() => {
+      expect(mockTaskCreate).toHaveBeenCalledWith({
+        title: 'New task title',
+        description: 'Some description',
+        status: 'todo',
+        priority: 'medium',
+        agent_id: null,
+        assigned_user_id: 'user-1',
+      });
+    });
+    expect(onTaskCreated).toHaveBeenCalledWith(mockTask);
+  });
+
+  it('creates a task assigned to the selected agent', async () => {
+    const user = userEvent.setup();
+    const onTaskCreated = vi.fn();
+    mockGetByAuthor.mockResolvedValueOnce([]);
+    mockTaskCreate.mockResolvedValueOnce(mockTask);
+
+    renderPanel({
+      selection: { type: 'agent', id: 'agent-1', name: 'Assistant Agent' },
+      ...defaultProps,
+      onTaskCreated,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Task title for Assistant Agent/)).toBeInTheDocument();
+    });
+
+    const textarea = screen.getByPlaceholderText(/Task title for Assistant Agent/);
+    await user.type(textarea, 'Agent task');
+    await user.click(screen.getByText('+ Create Task'));
+
+    await waitFor(() => {
+      expect(mockTaskCreate).toHaveBeenCalledWith({
+        title: 'Agent task',
+        description: '',
+        status: 'todo',
+        priority: 'medium',
+        agent_id: 'agent-1',
+        assigned_user_id: null,
+      });
+    });
+    expect(onTaskCreated).toHaveBeenCalledWith(mockTask);
+  });
+
+  it('disables create button when input is empty', async () => {
+    mockGetByAuthor.mockResolvedValueOnce([]);
+    renderPanel({
+      selection: { type: 'user', id: 'user-1', name: 'alice' },
+      ...defaultProps,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('+ Create Task')).toBeDisabled();
+    });
   });
 });
