@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { TaskCard } from '../components/TaskCard';
@@ -20,6 +20,10 @@ vi.mock('../api', () => ({
     delete: vi.fn(),
   },
 }));
+
+import { tasksApi } from '../api';
+const mockUpdate = vi.mocked(tasksApi.update);
+const mockDelete = vi.mocked(tasksApi.delete);
 
 describe('TaskCard', () => {
   const defaultProps = {
@@ -214,6 +218,158 @@ describe('TaskCard', () => {
 
       // CommentSection requires currentUser, should not render
       expect(screen.queryByText('Write a comment…')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('save editing', () => {
+    it('calls API update and onUpdate on Cmd+Enter', async () => {
+      const updatedTask = { ...mockTask, title: 'Updated title' };
+      mockUpdate.mockResolvedValueOnce(updatedTask);
+
+      renderWithRouter(<TaskCard {...defaultProps} />);
+      await userEvent.click(screen.getByTitle('Edit task'));
+
+      const titleInput = screen.getByPlaceholderText('Task title');
+      await userEvent.clear(titleInput);
+      await userEvent.type(titleInput, 'Updated title');
+
+      // Press Cmd+Enter to save
+      fireEvent.keyDown(titleInput.closest('.bg-white')!, {
+        key: 'Enter',
+        metaKey: true,
+      });
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalledWith(
+          'task-1',
+          expect.objectContaining({ title: 'Updated title' }),
+        );
+      });
+      expect(defaultProps.onUpdate).toHaveBeenCalledWith(updatedTask);
+    });
+
+    it('calls API update via Save button click', async () => {
+      const updatedTask = { ...mockTask, title: 'New title' };
+      mockUpdate.mockResolvedValueOnce(updatedTask);
+
+      renderWithRouter(<TaskCard {...defaultProps} />);
+      await userEvent.click(screen.getByTitle('Edit task'));
+
+      const titleInput = screen.getByPlaceholderText('Task title');
+      await userEvent.clear(titleInput);
+      await userEvent.type(titleInput, 'New title');
+
+      await userEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+      });
+      expect(defaultProps.onUpdate).toHaveBeenCalledWith(updatedTask);
+    });
+
+    it('does not save when title is empty', async () => {
+      renderWithRouter(<TaskCard {...defaultProps} />);
+      await userEvent.click(screen.getByTitle('Edit task'));
+
+      const titleInput = screen.getByPlaceholderText('Task title');
+      await userEvent.clear(titleInput);
+
+      // Save button should be disabled
+      expect(screen.getByText('Save')).toBeDisabled();
+    });
+
+    it('handles API error during save gracefully', async () => {
+      mockUpdate.mockRejectedValueOnce(new Error('Network error'));
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      renderWithRouter(<TaskCard {...defaultProps} />);
+      await userEvent.click(screen.getByTitle('Edit task'));
+      await userEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+      });
+      // Should stay in edit mode on error
+      expect(screen.getByPlaceholderText('Task title')).toBeInTheDocument();
+      consoleSpy.mockRestore();
+    });
+
+    it('sends agent_id when agent assignee is selected', async () => {
+      const updatedTask = { ...mockTaskInProgress };
+      mockUpdate.mockResolvedValueOnce(updatedTask);
+
+      renderWithRouter(<TaskCard {...defaultProps} task={mockTaskInProgress} />);
+      await userEvent.click(screen.getByTitle('Edit task'));
+      await userEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalledWith(
+          'task-2',
+          expect.objectContaining({ agent_id: 'agent-1', assigned_user_id: null }),
+        );
+      });
+    });
+
+    it('sends assigned_user_id when user assignee is selected', async () => {
+      const updatedTask = { ...mockTaskDone };
+      mockUpdate.mockResolvedValueOnce(updatedTask);
+
+      renderWithRouter(<TaskCard {...defaultProps} task={mockTaskDone} />);
+      await userEvent.click(screen.getByTitle('Edit task'));
+      await userEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalledWith(
+          'task-3',
+          expect.objectContaining({ agent_id: null, assigned_user_id: 'user-2' }),
+        );
+      });
+    });
+  });
+
+  describe('delete task', () => {
+    it('calls API delete and onDelete when confirmed', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      mockDelete.mockResolvedValueOnce(undefined);
+
+      renderWithRouter(<TaskCard {...defaultProps} />);
+      await userEvent.click(screen.getByTitle('Delete task'));
+
+      await waitFor(() => {
+        expect(mockDelete).toHaveBeenCalledWith('task-1');
+      });
+      expect(defaultProps.onDelete).toHaveBeenCalledWith('task-1');
+    });
+
+    it('does not delete when cancelled', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+      renderWithRouter(<TaskCard {...defaultProps} />);
+      await userEvent.click(screen.getByTitle('Delete task'));
+
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('drag behavior', () => {
+    it('prevents drag when in edit mode', async () => {
+      renderWithRouter(<TaskCard {...defaultProps} />);
+      await userEvent.click(screen.getByTitle('Edit task'));
+
+      // In edit mode, the card should not be draggable, drag should be prevented
+      const editContainer = screen.getByPlaceholderText('Task title').closest('.bg-white')!;
+      expect(editContainer).toBeInTheDocument();
+    });
+
+    it('resets opacity on drag end', () => {
+      renderWithRouter(<TaskCard {...defaultProps} />);
+      const card = screen.getByText('Fix login bug').closest('[draggable]')!;
+
+      fireEvent.dragStart(card, { dataTransfer: { setData: vi.fn() } });
+      expect(card.className).toContain('opacity-50');
+
+      fireEvent.dragEnd(card);
+      expect(card.className).not.toContain('opacity-50');
     });
   });
 });

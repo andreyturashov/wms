@@ -1,10 +1,12 @@
 """Tests for Pydantic schemas and SQLAlchemy models."""
 
 from datetime import datetime
+from unittest.mock import MagicMock
 
 import pytest
 
 from app.models.agent import Agent as AgentModel
+from app.models.comment import Comment as CommentModel
 from app.models.task import Task as TaskModel
 from app.models.user import User as UserModel
 from app.schemas.agent import AgentBase, AgentCreate, AgentResponse
@@ -197,3 +199,69 @@ class TestModels:
         )
         assert a.__tablename__ == "agents"
         assert a.key == "k"
+
+    def test_comment_model_fields(self):
+        c = CommentModel(
+            id="c1",
+            task_id="t1",
+            content="Hello",
+            user_id="u1",
+        )
+        assert c.__tablename__ == "comments"
+        assert c.content == "Hello"
+        assert c.agent_id is None
+        assert c.parent_id is None
+
+    def test_comment_author_name_from_user(self):
+        """author_name returns user.username when user is set."""
+        mock_user = MagicMock()
+        mock_user.username = "alice"
+        c = CommentModel(id="c1", task_id="t1", content="Hi", user_id="u1")
+        c.user = mock_user
+        c.agent = None
+        assert c.author_name == "alice"
+
+    def test_comment_author_name_from_agent(self):
+        """author_name returns agent.name when agent is set (but user is not)."""
+        mock_agent = MagicMock()
+        mock_agent.name = "Assistant Agent"
+        c = CommentModel(id="c1", task_id="t1", content="Hi", agent_id="a1")
+        c.user = None
+        c.agent = mock_agent
+        assert c.author_name == "Assistant Agent"
+
+    def test_comment_author_name_unknown(self):
+        """author_name returns 'Unknown' when neither user nor agent is set."""
+        c = CommentModel(id="c1", task_id="t1", content="Hi")
+        c.user = None
+        c.agent = None
+        assert c.author_name == "Unknown"
+
+    def test_comment_author_type_user(self):
+        """author_type returns 'user' when user_id is set."""
+        c = CommentModel(id="c1", task_id="t1", content="Hi", user_id="u1")
+        assert c.author_type == "user"
+
+    def test_comment_author_type_agent(self):
+        """author_type returns 'agent' when agent_id is set (no user_id)."""
+        c = CommentModel(id="c1", task_id="t1", content="Hi", agent_id="a1")
+        assert c.author_type == "agent"
+
+    def test_comment_author_type_unknown(self):
+        """author_type returns 'unknown' when neither is set."""
+        c = CommentModel(id="c1", task_id="t1", content="Hi")
+        assert c.author_type == "unknown"
+
+    def test_comment_task_title_with_task(self):
+        """task_title returns task.title when task is loaded."""
+        mock_task = MagicMock()
+        mock_task.title = "My Task"
+        c = CommentModel(id="c1", task_id="t1", content="Hi")
+        c.task = mock_task
+        assert c.task_title == "My Task"
+
+    def test_comment_task_title_without_task(self):
+        """task_title returns '' when task is not loaded."""
+        c = CommentModel(id="c1", task_id="t1", content="Hi")
+        c.task = None
+        assert c.task_title == ""

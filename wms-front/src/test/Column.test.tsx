@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Column } from '../components/Column';
 import { mockTask, mockTaskInProgress, mockUser, mockAgent } from './fixtures';
@@ -20,6 +20,10 @@ describe('Column', () => {
     onDeleteTask: vi.fn(),
     onDrop: vi.fn(),
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('renders column title and task count', () => {
     renderWithRouter(<Column {...defaultProps} />);
@@ -67,5 +71,41 @@ describe('Column', () => {
     );
     const col = container.firstChild as HTMLElement;
     expect(col.className).toContain('bg-green-100');
+  });
+
+  it('calls onDrop with taskId and new status on drop', () => {
+    renderWithRouter(<Column {...defaultProps} />);
+    const col = document.querySelector('.bg-gray-100')!;
+
+    const dataTransfer = {
+      getData: vi.fn().mockReturnValue('task-1'),
+      preventDefault: vi.fn(),
+    };
+    fireEvent.drop(col, { dataTransfer });
+
+    expect(defaultProps.onDrop).toHaveBeenCalledWith('task-1', 'todo');
+  });
+
+  it('does not call onDrop when no taskId in dataTransfer', () => {
+    renderWithRouter(<Column {...defaultProps} />);
+    const col = document.querySelector('.bg-gray-100')!;
+
+    const dataTransfer = {
+      getData: vi.fn().mockReturnValue(''),
+      preventDefault: vi.fn(),
+    };
+    fireEvent.drop(col, { dataTransfer });
+
+    expect(defaultProps.onDrop).not.toHaveBeenCalled();
+  });
+
+  it('prevents default on dragOver', () => {
+    renderWithRouter(<Column {...defaultProps} />);
+    const col = document.querySelector('.bg-gray-100')!;
+
+    const event = new Event('dragover', { bubbles: true, cancelable: true });
+    col.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
   });
 });

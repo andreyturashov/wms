@@ -1,7 +1,12 @@
 """Tests for AI task-analysis integration (LangGraph + mock LLM)."""
 
+import uuid
+
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import delete
+
+from app.models.agent import Agent
 
 TASK_PAYLOAD = {
     "title": "Build the dashboard",
@@ -57,3 +62,24 @@ class TestAITaskAnalysis:
 
         assert c["user_id"] is None
         assert c["agent_id"] is not None
+
+    async def test_ai_skips_when_assistant_agent_not_seeded(self):
+        """When the assistant agent is not in the DB, no comment is created."""
+        from app.ai.task_analysis import analyse_task_and_comment
+        from tests.conftest import TestSession
+
+        # Delete all agents so assistant agent is missing
+        async with TestSession() as db:
+            await db.execute(delete(Agent))
+            await db.commit()
+
+        # Run analysis — should return silently, no error
+        await analyse_task_and_comment(
+            task_id=str(uuid.uuid4()),
+            title="Test task",
+            description="Desc",
+            priority="low",
+            task_status="todo",
+        )
+
+        # No crash = success; the function returns None when agent is missing
