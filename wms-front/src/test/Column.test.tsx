@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Column } from '../components/Column';
@@ -20,6 +20,10 @@ describe('Column', () => {
     onDeleteTask: vi.fn(),
     onDrop: vi.fn(),
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('renders column title and task count', () => {
     renderWithRouter(<Column {...defaultProps} />);
