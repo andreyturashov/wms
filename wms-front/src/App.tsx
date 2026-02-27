@@ -219,7 +219,7 @@ function App() {
         <div className="flex gap-4">
           <Sidebar users={users} agents={agents} selection={authorSelection} onSelect={setAuthorSelection} />
           {authorSelection ? (
-            <CommentPanel selection={authorSelection} />
+            <CommentPanel selection={authorSelection} agents={agents} users={users} currentUser={currentUser} />
           ) : (
             <div className="flex-1 flex gap-4 overflow-x-auto pb-4">
             <Column

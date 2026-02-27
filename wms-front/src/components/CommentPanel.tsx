@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import type { Comment } from '../types';
+import { Link } from 'react-router-dom';
+import type { Agent, Comment, User } from '../types';
 import { commentsApi } from '../api';
+import { MentionTextarea, renderMentionContent } from './MentionTextarea';
 
 export type AuthorSelection =
   | { type: 'user'; id: string; name: string }
@@ -9,11 +11,17 @@ export type AuthorSelection =
 
 interface CommentPanelProps {
   selection: AuthorSelection;
+  agents: Agent[];
+  users: User[];
+  currentUser: User | null;
 }
 
-export function CommentPanel({ selection }: CommentPanelProps) {
+export function CommentPanel({ selection, agents, users, currentUser }: CommentPanelProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!selection) {
@@ -39,6 +47,39 @@ export function CommentPanel({ selection }: CommentPanelProps) {
     };
     void load();
   }, [selection]);
+
+  const handleReply = async (comment: Comment) => {
+    if (!replyContent.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await commentsApi.create(comment.task_id, {
+        content: replyContent.trim(),
+        parent_id: comment.id,
+      });
+      setReplyContent('');
+      setReplyingTo(null);
+      // Reload to see the reply
+      if (selection) {
+        const params =
+          selection.type === 'user'
+            ? { user_id: selection.id }
+            : { agent_id: selection.id };
+        const data = await commentsApi.getByAuthor(params);
+        setComments(data);
+      }
+    } catch (err) {
+      console.error('Failed to post reply:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReplyKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, comment: Comment) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      void handleReply(comment);
+    }
+  };
 
   const formatTime = (iso: string) => {
     const d = new Date(iso);
@@ -72,19 +113,69 @@ export function CommentPanel({ selection }: CommentPanelProps) {
             {comments.map((c) => (
               <div
                 key={c.id}
-                className="bg-gray-50 rounded-md p-2 text-xs border border-gray-100"
+                className="group bg-gray-50 rounded-md p-2 text-xs border border-gray-100"
               >
                 <div className="flex items-baseline justify-between gap-1 mb-0.5">
-                  <span className="font-medium text-gray-700 truncate">
+                  <Link
+                    to={`/tasks/${c.task_id}`}
+                    className="font-medium text-blue-600 hover:text-blue-800 hover:underline truncate"
+                    title={`Open task: ${c.task_title}`}
+                  >
                     {c.task_title}
-                  </span>
+                  </Link>
                   <span className="text-gray-400 text-[10px] flex-shrink-0">
                     {formatTime(c.created_at)}
                   </span>
                 </div>
                 <p className="text-gray-600 whitespace-pre-wrap break-words">
-                  {c.content}
+                  {renderMentionContent(c.content, users, agents)}
                 </p>
+                {/* Reply button */}
+                {currentUser && (
+                  <button
+                    onClick={() => {
+                      setReplyingTo(replyingTo === c.id ? null : c.id);
+                      setReplyContent('');
+                    }}
+                    className="mt-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500 transition-opacity text-[10px]"
+                    title="Reply to this comment"
+                  >
+                    ↩ Reply
+                  </button>
+                )}
+                {/* Inline reply form */}
+                {replyingTo === c.id && (
+                  <div className="mt-2 border-t border-gray-200 pt-2">
+                    <MentionTextarea
+                      value={replyContent}
+                      onChange={setReplyContent}
+                      onKeyDown={(e) => handleReplyKeyDown(e, c)}
+                      placeholder={`Reply to ${c.author_name}…`}
+                      rows={2}
+                      className="w-full text-xs px-2 py-1 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      users={users}
+                      agents={agents}
+                    />
+                    <div className="flex justify-end gap-1 mt-1">
+                      <button
+                        onClick={() => {
+                          setReplyingTo(null);
+                          setReplyContent('');
+                        }}
+                        className="text-[10px] px-2 py-0.5 text-gray-500 hover:text-gray-700"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => void handleReply(c)}
+                        disabled={submitting || !replyContent.trim()}
+                        className="text-[10px] px-2 py-0.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {submitting ? '…' : 'Reply'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
