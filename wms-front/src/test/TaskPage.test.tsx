@@ -145,4 +145,28 @@ describe('TaskPage', () => {
       expect(mockGetById).toHaveBeenCalledWith('task-1');
     });
   });
+
+  it('shows assigned agent name', async () => {
+    mockGetById.mockResolvedValue({ ...mockTask, agent_id: 'agent-1' });
+    renderTaskPage();
+    await waitFor(() => {
+      expect(screen.getByText(/Assistant Agent/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows assigned user name', async () => {
+    mockGetById.mockResolvedValue({ ...mockTask, assigned_user_id: 'user-2' });
+    renderTaskPage();
+    await waitFor(() => {
+      expect(screen.getByText(/bob/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows "None" when no due date', async () => {
+    mockGetById.mockResolvedValue({ ...mockTask, due_date: null });
+    renderTaskPage();
+    await waitFor(() => {
+      expect(screen.getByText('None')).toBeInTheDocument();
+    });
+  });
 });

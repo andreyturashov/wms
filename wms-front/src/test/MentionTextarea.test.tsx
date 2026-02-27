@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { MentionTextarea, renderMentionContent } from '../components/MentionTextarea';
@@ -156,6 +156,109 @@ describe('MentionTextarea', () => {
     await user.keyboard('{Escape}');
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('navigates suggestions with ArrowDown and ArrowUp', async () => {
+    const user = userEvent.setup();
+    render(<Wrapper users={defaultProps.users} agents={defaultProps.agents} />);
+
+    const textarea = screen.getByRole('textbox');
+    await user.type(textarea, '@');
+
+    // First item is active by default
+    const options = screen.getAllByRole('option');
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+
+    // Press ArrowDown to move to next
+    await user.keyboard('{ArrowDown}');
+    const optionsAfterDown = screen.getAllByRole('option');
+    expect(optionsAfterDown[1]).toHaveAttribute('aria-selected', 'true');
+
+    // Press ArrowUp to go back
+    await user.keyboard('{ArrowUp}');
+    const optionsAfterUp = screen.getAllByRole('option');
+    expect(optionsAfterUp[0]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('inserts mention on Enter key', async () => {
+    const user = userEvent.setup();
+    render(<Wrapper users={defaultProps.users} agents={defaultProps.agents} />);
+
+    const textarea = screen.getByRole('textbox');
+    await user.type(textarea, '@ali');
+
+    // alice should be in the dropdown
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(screen.getByText('alice')).toBeInTheDocument();
+
+    // Press Enter to select
+    await user.keyboard('{Enter}');
+
+    // Dropdown should close and mention should be inserted
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toContain('@alice');
+  });
+
+  it('inserts mention on Tab key', async () => {
+    const user = userEvent.setup();
+    render(<Wrapper users={defaultProps.users} agents={defaultProps.agents} />);
+
+    const textarea = screen.getByRole('textbox');
+    await user.type(textarea, '@bob');
+
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    await user.keyboard('{Tab}');
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toContain('@bob');
+  });
+
+  it('inserts mention on mouseDown click', async () => {
+    const user = userEvent.setup();
+    render(<Wrapper users={defaultProps.users} agents={defaultProps.agents} />);
+
+    const textarea = screen.getByRole('textbox');
+    await user.type(textarea, '@');
+
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    // Click on "bob" option
+    const bobOption = screen.getByText('bob').closest('button')!;
+    fireEvent.mouseDown(bobOption);
+
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toContain('@bob');
+  });
+
+  it('highlights option on mouseEnter', async () => {
+    const user = userEvent.setup();
+    render(<Wrapper users={defaultProps.users} agents={defaultProps.agents} />);
+
+    const textarea = screen.getByRole('textbox');
+    await user.type(textarea, '@');
+
+    const options = screen.getAllByRole('option');
+    // Hover over the second option
+    fireEvent.mouseEnter(options[1]);
+    expect(options[1]).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('forwards non-mention keypresses to parent onKeyDown', async () => {
+    const user = userEvent.setup();
+    const onKeyDown = vi.fn();
+    render(
+      <Wrapper
+        users={defaultProps.users}
+        agents={defaultProps.agents}
+        onKeyDown={onKeyDown}
+      />,
+    );
+
+    const textarea = screen.getByRole('textbox');
+    await user.type(textarea, 'plain text');
+
+    // onKeyDown should have been called for each keystroke
+    expect(onKeyDown).toHaveBeenCalled();
   });
 });
 

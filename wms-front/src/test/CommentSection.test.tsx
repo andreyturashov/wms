@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CommentSection } from '../components/CommentSection';
 import { mockUser, mockUser2, mockAgent, mockComment, mockCommentWithReplies } from './fixtures';
@@ -268,5 +268,169 @@ describe('CommentSection', () => {
     await user.click(screen.getByTitle('Reply'));
 
     expect(screen.getByText('Reply')).toBeInTheDocument();
+  });
+
+  it('submits a reply and nests it under parent', async () => {
+    const user = userEvent.setup();
+    const reply = {
+      ...mockComment,
+      id: 'reply-1',
+      content: 'Noted!',
+      parent_id: mockComment.id,
+      replies: [],
+    };
+    mockGetByTaskId.mockResolvedValueOnce([mockComment]);
+    mockCreate.mockResolvedValueOnce(reply);
+
+    render(<CommentSection {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('This needs urgent attention.')).toBeInTheDocument();
+    });
+
+    // Click reply
+    await user.click(screen.getByTitle('Reply'));
+
+    const textarea = screen.getByPlaceholderText('Reply to alice…');
+    await user.type(textarea, 'Noted!');
+    await user.click(screen.getByText('Reply'));
+
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledWith('task-1', {
+        content: 'Noted!',
+        agent_id: null,
+        parent_id: 'comment-1',
+      });
+    });
+
+    // Reply should be visible
+    await waitFor(() => {
+      expect(screen.getByText('Noted!')).toBeInTheDocument();
+    });
+  });
+
+  it('submits comment via Cmd+Enter', async () => {
+    const user = userEvent.setup();
+    const newComment = {
+      ...mockComment,
+      id: 'cmd-enter-comment',
+      content: 'Quick comment',
+    };
+    mockGetByTaskId.mockResolvedValueOnce([]);
+    mockCreate.mockResolvedValueOnce(newComment);
+
+    render(<CommentSection {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Write a comment… (type @ to mention)')).toBeInTheDocument();
+    });
+
+    const textarea = screen.getByPlaceholderText('Write a comment… (type @ to mention)');
+    await user.type(textarea, 'Quick comment');
+
+    // Fire Cmd+Enter
+    fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true });
+
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledWith('task-1', {
+        content: 'Quick comment',
+        agent_id: null,
+        parent_id: null,
+      });
+    });
+  });
+
+  it('submits as agent when agent is selected in "Post as"', async () => {
+    const user = userEvent.setup();
+    const agentComment = {
+      ...mockComment,
+      id: 'agent-comment',
+      content: 'Agent says hi',
+      agent_id: 'agent-1',
+      user_id: null,
+      author_type: 'agent' as const,
+      author_name: 'Assistant Agent',
+    };
+    mockGetByTaskId.mockResolvedValueOnce([]);
+    mockCreate.mockResolvedValueOnce(agentComment);
+
+    render(<CommentSection {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Write a comment… (type @ to mention)')).toBeInTheDocument();
+    });
+
+    // Select agent in "Post as" dropdown
+    const postAsSelect = screen.getByRole('combobox');
+    await user.selectOptions(postAsSelect, `agent:${mockAgent.id}`);
+
+    const textarea = screen.getByPlaceholderText('Write a comment… (type @ to mention)');
+    await user.type(textarea, 'Agent says hi');
+    await user.click(screen.getByText('Send'));
+
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledWith('task-1', {
+        content: 'Agent says hi',
+        agent_id: 'agent-1',
+        parent_id: null,
+      });
+    });
+  });
+
+  it('handles error when loading comments fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetByTaskId.mockRejectedValueOnce(new Error('Network error'));
+
+    render(<CommentSection {...defaultProps} />);
+
+    // Should eventually show empty state
+    await waitFor(() => {
+      expect(screen.queryByText('Loading comments…')).not.toBeInTheDocument();
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it('handles error when posting comment fails', async () => {
+    const user = userEvent.setup();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetByTaskId.mockResolvedValueOnce([]);
+    mockCreate.mockRejectedValueOnce(new Error('Post failed'));
+
+    render(<CommentSection {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Write a comment… (type @ to mention)')).toBeInTheDocument();
+    });
+
+    const textarea = screen.getByPlaceholderText('Write a comment… (type @ to mention)');
+    await user.type(textarea, 'Will fail');
+    await user.click(screen.getByText('Send'));
+
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalled();
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it('handles error when deleting comment fails', async () => {
+    const user = userEvent.setup();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetByTaskId.mockResolvedValueOnce([mockComment]);
+    mockDelete.mockRejectedValueOnce(new Error('Delete failed'));
+
+    render(<CommentSection {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Delete comment')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTitle('Delete comment'));
+
+    await waitFor(() => {
+      expect(mockDelete).toHaveBeenCalled();
+    });
+    // Comment should still be visible since delete failed
+    expect(screen.getByText('This needs urgent attention.')).toBeInTheDocument();
+    consoleSpy.mockRestore();
   });
 });
