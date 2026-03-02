@@ -3,10 +3,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // mockFetch needs to be declared before the dynamic import
 const mockFetch = vi.fn();
 
+// In-memory localStorage shim (jsdom may not provide a working one in all
+// Node / vitest versions).
+const store = new Map<string, string>();
+const localStorageShim: Storage = {
+  getItem: (k: string) => store.get(k) ?? null,
+  setItem: (k: string, v: string) => { store.set(k, v); },
+  removeItem: (k: string) => { store.delete(k); },
+  clear: () => { store.clear(); },
+  get length() { return store.size; },
+  key: (i: number) => [...store.keys()][i] ?? null,
+};
+
 beforeEach(() => {
   mockFetch.mockReset();
   vi.stubGlobal('fetch', mockFetch);
-  localStorage.clear();
+  store.clear();
+  vi.stubGlobal('localStorage', localStorageShim);
 });
 
 afterEach(() => {

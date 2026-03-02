@@ -4,13 +4,14 @@ LangGraph-based task analysis pipeline.
 When a new task is created the graph analyses it and produces a structured
 recommendation that is stored as a comment authored by the Assistant Agent.
 
-For now the LLM call is **mocked** – it returns a deterministic result built
-from the task data so the feature can be developed and tested without an API
-key.  Replace `MockLLM` with a real chat model (e.g. `ChatOpenAI`) to go live.
+Supports multiple LLM providers controlled by the LLM_PROVIDER setting:
+  - "ollama"  – Local Ollama server via langchain-ollama
+  - "mock"    – Deterministic MockLLM (default, for tests / local dev)
 """
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import TypedDict
 
@@ -20,12 +21,15 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langgraph.graph import END, StateGraph
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.models.agent import Agent
 from app.models.comment import Comment
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
-# Mock LLM – replace with a real model later
+# Mock LLM – used when GOOGLE_API_KEY is not set (tests / local dev)
 # ---------------------------------------------------------------------------
 
 
@@ -44,19 +48,53 @@ class MockLLM(BaseChatModel):
         stop: list[str] | None = None,
         **kwargs,
     ) -> ChatResult:
-        # Extract task info from the last human message
         _prompt_text = messages[-1].content if messages else ""
         response = (
             "**AI Analysis**\n\n"
             "I've reviewed the new task. Here are my recommendations:\n\n"
-            "• **Priority assessment**: The described work appears well-scoped.\n"
-            "• **Estimated effort**: Small to medium.\n"
-            "• **Suggested next steps**: Break the task into subtasks if it "
+            "- **Priority assessment**: The described work appears well-scoped.\n"
+            "- **Estimated effort**: Small to medium.\n"
+            "- **Suggested next steps**: Break the task into subtasks if it "
             "grows beyond a single session.\n"
-            "• **Dependencies**: None detected.\n\n"
+            "- **Dependencies**: None detected.\n\n"
             "_This analysis was generated automatically when the task was created._"
         )
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content=response))])
+
+
+# ---------------------------------------------------------------------------
+# LLM factory – picks provider based on LLM_PROVIDER setting
+# ---------------------------------------------------------------------------
+
+
+def _build_llm() -> BaseChatModel:
+    """Return the LLM instance based on the LLM_PROVIDER setting.
+
+    Supported providers:
+      - "ollama"  – Local Ollama server via langchain-ollama
+      - "mock"    – Deterministic MockLLM (default, used for tests / local dev)
+    """
+    provider = settings.LLM_PROVIDER.lower().strip()
+
+    if provider == "ollama":
+        from langchain_ollama import ChatOllama
+
+        logger.info(
+            "Using Ollama (%s) at %s for task analysis",
+            settings.OLLAMA_MODEL,
+            settings.OLLAMA_BASE_URL,
+        )
+        return ChatOllama(
+            model=settings.OLLAMA_MODEL,
+            base_url=settings.OLLAMA_BASE_URL,
+            temperature=0.3,
+        )
+
+    if provider != "mock":
+        logger.warning("Unknown LLM_PROVIDER=%r - falling back to MockLLM", provider)
+
+    logger.info("Using MockLLM for task analysis")
+    return MockLLM()
 
 
 # ---------------------------------------------------------------------------
@@ -90,14 +128,25 @@ def build_prompt(state: TaskAnalysisState) -> TaskAnalysisState:
     return {**state, "result": prompt}
 
 
-_llm = MockLLM()
+_llm = _build_llm()
+
+
+def _get_llm() -> BaseChatModel:
+    """Return the active LLM instance. Can be overridden by tests."""
+    return _llm
+
+
+def set_llm(llm: BaseChatModel) -> None:
+    """Override the LLM instance (used by tests to inject MockLLM)."""
+    global _llm
+    _llm = llm
 
 
 def call_llm(state: TaskAnalysisState) -> TaskAnalysisState:
-    """Invoke the (mock) LLM and store the response (node 2)."""
+    """Invoke the LLM and store the response (node 2)."""
     from langchain_core.messages import HumanMessage
 
-    response = _llm.invoke([HumanMessage(content=state["result"])])
+    response = _get_llm().invoke([HumanMessage(content=state["result"])])
     return {**state, "result": response.content}
 
 
@@ -140,25 +189,48 @@ async def analyse_task_and_comment(
 ) -> None:
     """Run the LangGraph pipeline and save the output as an agent comment."""
 
-    # 1. Execute the graph (sync under the hood – mock is instant)
-    result = task_analysis_graph.invoke(
-        {
-            "task_title": title,
-            "task_description": description,
-            "task_priority": priority,
-            "task_status": task_status,
-            "result": "",
-        }
+    logger.info(
+        "Starting AI analysis for task %s (title=%r, priority=%s, status=%s)",
+        task_id,
+        title,
+        priority,
+        task_status,
     )
 
+    # 1. Execute the graph (sync under the hood – mock is instant)
+    try:
+        result = task_analysis_graph.invoke(
+            {
+                "task_title": title,
+                "task_description": description,
+                "task_priority": priority,
+                "task_status": task_status,
+                "result": "",
+            }
+        )
+    except Exception:
+        logger.exception("LangGraph invocation failed for task %s", task_id)
+        return
+
     ai_content: str = result["result"]
+    logger.info(
+        "AI analysis complete for task %s (%d chars):\n%s",
+        task_id,
+        len(ai_content),
+        ai_content,
+    )
 
     # 2. Persist as a comment authored by the Assistant Agent
     async with _session_factory() as db:
         agent = (await db.execute(select(Agent).where(Agent.key == ASSISTANT_AGENT_KEY))).scalar_one_or_none()
 
         if not agent:
-            return  # agent not seeded yet – skip silently
+            logger.warning(
+                "Assistant agent (%s) not found - skipping comment for task %s",
+                ASSISTANT_AGENT_KEY,
+                task_id,
+            )
+            return
 
         comment = Comment(
             id=str(uuid.uuid4()),
@@ -170,3 +242,9 @@ async def analyse_task_and_comment(
         )
         db.add(comment)
         await db.commit()
+
+    logger.info(
+        "Saved AI comment (agent=%s) on task %s",
+        agent.id,
+        task_id,
+    )
