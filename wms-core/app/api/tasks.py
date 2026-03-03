@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -86,6 +86,7 @@ async def get_task(
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(
     task: TaskCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -114,8 +115,9 @@ async def create_task(
     await db.commit()
     await db.refresh(new_task)
 
-    # Run the AI analysis pipeline and post result as a comment
-    await analyse_task_and_comment(
+    # Run the AI analysis pipeline in the background so the response returns immediately
+    background_tasks.add_task(
+        analyse_task_and_comment,
         task_id=new_task.id,
         title=new_task.title,
         description=new_task.description or "",
