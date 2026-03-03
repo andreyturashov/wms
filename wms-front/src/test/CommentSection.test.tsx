@@ -349,7 +349,7 @@ describe('CommentSection', () => {
       agent_id: 'agent-1',
       user_id: null,
       author_type: 'agent' as const,
-      author_name: 'Assistant Agent',
+      author_name: 'Executor Agent',
     };
     mockGetByTaskId.mockResolvedValueOnce([]);
     mockCreate.mockResolvedValueOnce(agentComment);

@@ -19,24 +19,14 @@ _ = (user, task, agent, comment)
 
 DEFAULT_AGENTS = [
     {
-        "key": "task_automation",
-        "name": "Task Automation Agent",
-        "description": "Automatically categorizes and prioritizes tasks.",
+        "key": "executor",
+        "name": "Executor Agent",
+        "description": "Takes tasks as described and produces clear, actionable execution plans.",
     },
     {
-        "key": "notification",
-        "name": "Notification Agent",
-        "description": "Monitors deadlines and sends reminders.",
-    },
-    {
-        "key": "analytics",
-        "name": "Analytics Agent",
-        "description": "Generates productivity reports and bottleneck insights.",
-    },
-    {
-        "key": "assistant",
-        "name": "Assistant Agent",
-        "description": "Helps create tasks and provides recommendations.",
+        "key": "thinker",
+        "name": "Thinker Agent",
+        "description": "Analyses problems and generates creative ideas and alternative approaches.",
     },
 ]
 

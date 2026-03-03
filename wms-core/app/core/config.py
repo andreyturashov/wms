@@ -19,6 +19,11 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
+    # LLM
+    LLM_PROVIDER: str = "mock"  # "mock" | "ollama"
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "llama3.1"
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

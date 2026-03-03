@@ -73,7 +73,7 @@ describe('TaskModal', () => {
     expect(screen.getByText('Unassigned')).toBeInTheDocument();
     expect(screen.getByText('alice')).toBeInTheDocument();
     expect(screen.getByText('bob')).toBeInTheDocument();
-    expect(screen.getByText('Assistant Agent')).toBeInTheDocument();
+    expect(screen.getByText('Executor Agent')).toBeInTheDocument();
   });
 
   it('calls onSubmit with form data on submit', async () => {

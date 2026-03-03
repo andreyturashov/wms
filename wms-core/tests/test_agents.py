@@ -12,10 +12,10 @@ class TestListAgents:
         resp = await authed_client.get("/api/agents")
         assert resp.status_code == 200
         agents = resp.json()
-        # Default seed includes 4 agents
-        assert len(agents) >= 4
+        # Default seed includes 2 agents
+        assert len(agents) >= 2
         keys = {a["key"] for a in agents}
-        assert keys >= {"task_automation", "notification", "analytics", "assistant"}
+        assert keys >= {"executor", "thinker"}
 
     async def test_list_agents_active_only(self, authed_client: AsyncClient):
         resp = await authed_client.get("/api/agents?active_only=true")
@@ -93,10 +93,10 @@ class TestCreateAgent:
         assert resp.json()["is_active"] is False
 
     async def test_create_agent_duplicate_key(self, authed_client: AsyncClient):
-        # 'task_automation' is seeded by default
+        # 'executor' is seeded by default
         resp = await authed_client.post(
             "/api/agents",
-            json={"key": "task_automation", "name": "Dup"},
+            json={"key": "executor", "name": "Dup"},
         )
         assert resp.status_code == 409
         assert "already exists" in resp.json()["detail"].lower()
