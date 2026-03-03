@@ -130,3 +130,14 @@ class TestAITaskAnalysis:
 
         content = load_professional_md("nonexistent_agent")
         assert content == ""
+
+    async def test_mock_llm_generic_fallback_without_system_prompt(self):
+        """MockLLM returns generic AI Analysis when no system prompt is provided."""
+        from langchain_core.messages import HumanMessage
+
+        from app.ai.task_analysis import MockLLM
+
+        llm = MockLLM()
+        result = llm.invoke([HumanMessage(content="Analyse this task")])
+        assert "AI Analysis" in result.content
+        assert "Priority assessment" in result.content
