@@ -37,6 +37,10 @@ export function CommentSection({ taskId, agents, users, currentUser }: CommentSe
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [comments.length]);
 
+  /** Check if text contains an @mention that matches an active agent key */
+  const mentionsAgent = (text: string) =>
+    agents.some((a) => text.toLowerCase().includes(`@${a.key.toLowerCase()}`));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newContent.trim() || submitting) return;
@@ -44,25 +48,39 @@ export function CommentSection({ taskId, agents, users, currentUser }: CommentSe
     setSubmitting(true);
     try {
       const agentId = postAs.startsWith('agent:') ? postAs.slice(6) : null;
+      const content = newContent.trim();
       const comment = await commentsApi.create(taskId, {
-        content: newContent.trim(),
+        content,
         agent_id: agentId,
         parent_id: replyTo?.id ?? null,
       });
 
-      // If the comment has agent replies (from @mentions), re-fetch all comments
-      // to ensure the full tree is up-to-date. Otherwise, update state locally.
-      if (comment.replies && comment.replies.length > 0) {
-        const data = await commentsApi.getByTaskId(taskId);
-        setComments(data);
-      } else if (replyTo) {
-        // Add reply nested under its parent
+      if (replyTo) {
         setComments((prev) => addReply(prev, replyTo.id, comment));
       } else {
         setComments((prev) => [...prev, comment]);
       }
       setNewContent('');
       setReplyTo(null);
+
+      // Agent reply is generated in the background — poll briefly to pick it up
+      if (!agentId && mentionsAgent(content)) {
+        const poll = async (retries: number, delay: number) => {
+          for (let i = 0; i < retries; i++) {
+            await new Promise((r) => setTimeout(r, delay));
+            const data = await commentsApi.getByTaskId(taskId);
+            const updated = data.find((c: Comment) => c.id === comment.id);
+            if (updated && updated.replies && updated.replies.length > 0) {
+              setComments(data);
+              return;
+            }
+          }
+          // Final refresh even if no reply appeared yet
+          const data = await commentsApi.getByTaskId(taskId);
+          setComments(data);
+        };
+        void poll(10, 3000); // 10 attempts, 3 s apart (~30 s max)
+      }
     } catch (err) {
       console.error('Failed to post comment:', err);
     } finally {

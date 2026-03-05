@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -74,6 +74,7 @@ async def get_task_comments(
 async def create_task_comment(
     task_id: str,
     payload: CommentCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -119,15 +120,16 @@ async def create_task_comment(
     db.add(comment)
     await db.commit()
 
-    # Trigger agent mention reactions (replies posted in a separate session)
-    await handle_agent_mentions(
+    # Schedule agent mention reactions in the background so the HTTP
+    # response returns immediately (LLM inference can take many seconds).
+    background_tasks.add_task(
+        handle_agent_mentions,
         task_id=task_id,
         comment_id=comment.id,
         comment_content=comment.content,
     )
 
-    # Re-fetch with relationships loaded; populate_existing ensures the identity
-    # map is refreshed so selectinload picks up replies created by handle_agent_mentions.
+    # Re-fetch with relationships loaded
     result = await db.execute(
         select(Comment)
         .where(Comment.id == comment.id)

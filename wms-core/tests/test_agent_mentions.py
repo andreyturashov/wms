@@ -53,8 +53,8 @@ class TestAgentMentionReaction:
         assert "Task Summary" in reply["content"]
         assert task["title"] in reply["content"]
 
-    async def test_post_response_includes_agent_reply(self, authed_client: AsyncClient):
-        """The POST response itself should include the agent reply in replies."""
+    async def test_post_response_and_background_reply(self, authed_client: AsyncClient):
+        """The agent reply is created in the background; a GET should return it."""
         task = await create_task(authed_client)
 
         resp = await authed_client.post(
@@ -64,9 +64,16 @@ class TestAgentMentionReaction:
         assert resp.status_code == 201
         comment = resp.json()
 
-        # The response body must already include the agent reply
-        assert len(comment["replies"]) == 1
-        reply = comment["replies"][0]
+        # POST response returns before the background task finishes
+        # so replies may be empty here — that's fine.
+
+        # Fetch via GET — the background task has completed by the time
+        # the ASGI transport returns the POST above, so the reply should exist.
+        resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
+        comments = resp.json()
+        user_comment = next(c for c in comments if c["id"] == comment["id"])
+        assert len(user_comment["replies"]) == 1
+        reply = user_comment["replies"][0]
         assert reply["author_type"] == "agent"
         assert reply["author_name"] == "Executor"
         assert "Task Summary" in reply["content"]
