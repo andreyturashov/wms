@@ -13,11 +13,6 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30 * 24 * 60  # 30 days
 
-    # LLM
-    LLM_PROVIDER: str = "ollama"  # "ollama" or "mock"
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "llama3.1"
-
     # API
     CORS_ORIGINS: list[str] = [
         "http://localhost:5173",

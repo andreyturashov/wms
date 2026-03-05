@@ -1,3 +1,4 @@
+import logging
 import uuid
 from contextlib import asynccontextmanager
 
@@ -11,9 +12,15 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import AsyncSessionLocal, engine
 
+# Configure logging for the whole app
+logging.basicConfig(
+    level=logging.DEBUG if settings.DEBUG else logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+
 # Import models BEFORE creating tables to ensure they are registered with Base
-from app.models import agent, comment, task, user
-from app.models.agent import Agent
+from app.models import agent, comment, task, user  # noqa: E402
+from app.models.agent import Agent  # noqa: E402
 
 _ = (user, task, agent, comment)
 
