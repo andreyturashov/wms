@@ -14,9 +14,9 @@ export const mockUser2: User = {
 
 export const mockAgent: Agent = {
   id: 'agent-1',
-  key: 'assistant',
-  name: 'Assistant Agent',
-  description: 'An AI assistant',
+  key: 'executor',
+  name: 'Executor Agent',
+  description: 'Takes tasks as described and produces clear, actionable execution plans.',
   is_active: true,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
@@ -24,9 +24,9 @@ export const mockAgent: Agent = {
 
 export const mockAgent2: Agent = {
   id: 'agent-2',
-  key: 'analytics',
-  name: 'Analytics Agent',
-  description: 'Analytics helper',
+  key: 'thinker',
+  name: 'Thinker Agent',
+  description: 'Analyses problems and generates creative ideas and alternative approaches.',
   is_active: true,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
@@ -55,7 +55,7 @@ export const mockTaskInProgress: Task = {
   status: 'in_progress',
   priority: 'medium',
   agent_id: 'agent-1',
-  assigned_agent: 'Assistant Agent',
+  assigned_agent: 'Executor Agent',
   assigned_user_id: null,
   assigned_username: null,
   due_date: null,
@@ -101,7 +101,7 @@ export const mockCommentWithReplies: Comment = {
   content: 'I am investigating.',
   user_id: null,
   agent_id: 'agent-1',
-  author_name: 'Assistant Agent',
+  author_name: 'Executor Agent',
   author_type: 'agent',
   parent_id: null,
   replies: [

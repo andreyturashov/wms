@@ -94,7 +94,7 @@ describe('TaskCard', () => {
 
     it('renders assigned agent badge', () => {
       renderWithRouter(<TaskCard {...defaultProps} task={mockTaskInProgress} />);
-      expect(screen.getByText(/Assistant Agent/)).toBeInTheDocument();
+      expect(screen.getByText(/Executor Agent/)).toBeInTheDocument();
     });
 
     it('renders assigned user badge', () => {

@@ -150,7 +150,7 @@ describe('TaskPage', () => {
     mockGetById.mockResolvedValue({ ...mockTask, agent_id: 'agent-1' });
     renderTaskPage();
     await waitFor(() => {
-      expect(screen.getByText(/Assistant Agent/)).toBeInTheDocument();
+      expect(screen.getByText(/Executor Agent/)).toBeInTheDocument();
     });
   });
 
