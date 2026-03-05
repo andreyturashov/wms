@@ -49,7 +49,7 @@ async def _patch_session(monkeypatch):
 
 
 class TestSeedDefaultAgents:
-    async def test_seeds_four_agents(self):
+    async def test_seeds_agents(self):
         await seed_default_agents()
         async with _TestSession() as db:
             result = await db.execute(select(Agent))

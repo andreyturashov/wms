@@ -36,13 +36,13 @@ class TestAgentMentionReaction:
         )
         assert resp.status_code == 201
 
-        # Fetch comments: AI auto-comment + user comment + agent reply
+        # Fetch comments: AI auto-comments + user comment + agent reply
         resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
         assert resp.status_code == 200
         comments = resp.json()
 
-        # Top-level: AI auto-comment + user comment with mention
-        assert len(comments) == 2
+        # Top-level: 2 AI auto-comments + user comment with mention
+        assert len(comments) == 3
 
         user_comment = next(c for c in comments if c["content"] == "Hey @Executor can you help with this?")
         # The agent reply should be nested under the user comment

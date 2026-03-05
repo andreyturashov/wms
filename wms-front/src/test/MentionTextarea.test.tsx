@@ -61,8 +61,8 @@ describe('MentionTextarea', () => {
     expect(screen.getByRole('listbox')).toBeInTheDocument();
     expect(screen.getByText('alice')).toBeInTheDocument();
     expect(screen.getByText('bob')).toBeInTheDocument();
-    expect(screen.getByText('Assistant Agent')).toBeInTheDocument();
-    expect(screen.getByText('Analytics Agent')).toBeInTheDocument();
+    expect(screen.getByText('Executor Agent')).toBeInTheDocument();
+    expect(screen.getByText('Thinker Agent')).toBeInTheDocument();
   });
 
   it('filters suggestions as user types after @', async () => {
@@ -282,11 +282,11 @@ describe('renderMentionContent', () => {
 
   it('highlights an agent mention', () => {
     const { container } = render(
-      <p>{renderMentionContent('Ask @Assistant Agent for help', users, agents)}</p>,
+      <p>{renderMentionContent('Ask @Executor Agent for help', users, agents)}</p>,
     );
     const mention = container.querySelector('.text-blue-600');
     expect(mention).not.toBeNull();
-    expect(mention?.textContent).toBe('@Assistant Agent');
+    expect(mention?.textContent).toBe('@Executor Agent');
   });
 
   it('highlights multiple mentions', () => {

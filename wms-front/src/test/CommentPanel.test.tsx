@@ -57,10 +57,10 @@ describe('CommentPanel', () => {
   it('shows title with agent name when agent is selected', async () => {
     mockGetByAuthor.mockResolvedValueOnce([]);
     renderPanel({
-      selection: { type: 'agent', id: 'agent-1', name: 'Assistant Agent' },
+      selection: { type: 'agent', id: 'agent-1', name: 'Executor Agent' },
       ...defaultProps,
     });
-    expect(screen.getByText(/Comments by Assistant Agent/)).toBeInTheDocument();
+    expect(screen.getByText(/Comments by Executor Agent/)).toBeInTheDocument();
   });
 
   it('shows loading state', () => {
@@ -125,7 +125,7 @@ describe('CommentPanel', () => {
   it('fetches with agent_id param for agent selection', async () => {
     mockGetByAuthor.mockResolvedValueOnce([]);
     renderPanel({
-      selection: { type: 'agent', id: 'agent-1', name: 'Assistant Agent' },
+      selection: { type: 'agent', id: 'agent-1', name: 'Executor Agent' },
       ...defaultProps,
     });
 
@@ -146,7 +146,7 @@ describe('CommentPanel', () => {
   it('shows agent icon for agent selection', () => {
     mockGetByAuthor.mockResolvedValueOnce([]);
     renderPanel({
-      selection: { type: 'agent', id: 'agent-1', name: 'Assistant Agent' },
+      selection: { type: 'agent', id: 'agent-1', name: 'Executor Agent' },
       ...defaultProps,
     });
     expect(screen.getByText(/🤖/)).toBeInTheDocument();
@@ -281,16 +281,16 @@ describe('CommentPanel', () => {
     mockTaskCreate.mockResolvedValueOnce(mockTask);
 
     renderPanel({
-      selection: { type: 'agent', id: 'agent-1', name: 'Assistant Agent' },
+      selection: { type: 'agent', id: 'agent-1', name: 'Executor Agent' },
       ...defaultProps,
       onTaskCreated,
     });
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText(/Task title for Assistant Agent/)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Task title for Executor Agent/)).toBeInTheDocument();
     });
 
-    const textarea = screen.getByPlaceholderText(/Task title for Assistant Agent/);
+    const textarea = screen.getByPlaceholderText(/Task title for Executor Agent/);
     await user.type(textarea, 'Agent task');
     await user.click(screen.getByText('+ Create Task'));
 
