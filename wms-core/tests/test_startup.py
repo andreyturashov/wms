@@ -55,7 +55,7 @@ class TestSeedDefaultAgents:
             result = await db.execute(select(Agent))
             agents = result.scalars().all()
         keys = {a.key for a in agents}
-        assert keys == {"task_automation", "notification", "analytics", "assistant"}
+        assert keys == {"executor", "thinker"}
 
     async def test_idempotent(self):
         await seed_default_agents()
@@ -63,7 +63,7 @@ class TestSeedDefaultAgents:
         async with _TestSession() as db:
             result = await db.execute(select(Agent))
             agents = result.scalars().all()
-        assert len(agents) == 4
+        assert len(agents) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +179,7 @@ class TestBackfillAgentIds:
                     "status": "todo",
                     "priority": "medium",
                     "user_id": user_id,
-                    "assigned_agent": "notification",
+                    "assigned_agent": "executor",
                 },
             )
             await db.commit()
@@ -205,7 +205,7 @@ class TestCreateTables:
         async with _TestSession() as db:
             result = await db.execute(select(Agent))
             agents = result.scalars().all()
-        assert len(agents) == 4
+        assert len(agents) == 2
 
 
 # ---------------------------------------------------------------------------

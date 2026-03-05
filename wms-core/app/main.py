@@ -19,24 +19,14 @@ _ = (user, task, agent, comment)
 
 DEFAULT_AGENTS = [
     {
-        "key": "task_automation",
-        "name": "Task Automation Agent",
-        "description": "Automatically categorizes and prioritizes tasks.",
+        "key": "executor",
+        "name": "Executor",
+        "description": "Executes task automation, scheduling, and notifications.",
     },
     {
-        "key": "notification",
-        "name": "Notification Agent",
-        "description": "Monitors deadlines and sends reminders.",
-    },
-    {
-        "key": "analytics",
-        "name": "Analytics Agent",
-        "description": "Generates productivity reports and bottleneck insights.",
-    },
-    {
-        "key": "assistant",
-        "name": "Assistant Agent",
-        "description": "Helps create tasks and provides recommendations.",
+        "key": "thinker",
+        "name": "Thinker",
+        "description": "Analyses tasks, provides recommendations, and generates insights.",
     },
 ]
 
@@ -68,12 +58,20 @@ async def ensure_task_assigned_user_fk_column(conn) -> None:
 
 
 async def seed_default_agents() -> None:
-    async with AsyncSessionLocal() as db:
-        existing = await db.execute(select(Agent.key))
-        existing_keys = set(existing.scalars().all())
+    allowed_keys = {a["key"] for a in DEFAULT_AGENTS}
 
+    async with AsyncSessionLocal() as db:
+        existing = await db.execute(select(Agent))
+        existing_agents = {a.key: a for a in existing.scalars().all()}
+
+        # Remove agents that are no longer in DEFAULT_AGENTS
+        for key, agent in existing_agents.items():
+            if key not in allowed_keys:
+                await db.delete(agent)
+
+        # Add missing default agents
         for default_agent in DEFAULT_AGENTS:
-            if default_agent["key"] in existing_keys:
+            if default_agent["key"] in existing_agents:
                 continue
 
             db.add(
@@ -86,8 +84,7 @@ async def seed_default_agents() -> None:
                 )
             )
 
-        if db.new:
-            await db.commit()
+        await db.commit()
 
 
 async def backfill_task_agent_ids() -> None:

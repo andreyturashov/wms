@@ -224,11 +224,11 @@ class TestModels:
     def test_comment_author_name_from_agent(self):
         """author_name returns agent.name when agent is set (but user is not)."""
         mock_agent = MagicMock()
-        mock_agent.name = "Assistant Agent"
+        mock_agent.name = "Thinker"
         c = CommentModel(id="c1", task_id="t1", content="Hi", agent_id="a1")
         c.user = None
         c.agent = mock_agent
-        assert c.author_name == "Assistant Agent"
+        assert c.author_name == "Thinker"
 
     def test_comment_author_name_unknown(self):
         """author_name returns 'Unknown' when neither user nor agent is set."""
