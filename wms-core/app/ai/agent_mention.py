@@ -92,6 +92,15 @@ class MockMentionLLM(BaseChatModel):
         )
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content=response))])
 
+    async def _agenerate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        **kwargs,
+    ) -> ChatResult:
+        """Async variant — delegates to the sync implementation."""
+        return self._generate(messages, stop, **kwargs)
+
 
 # ---------------------------------------------------------------------------
 # LLM factory – returns Ollama or Mock depending on settings
@@ -178,12 +187,12 @@ def set_mention_llm(llm: BaseChatModel | None) -> None:
     _mention_llm = llm
 
 
-def call_mention_llm(state: MentionReactionState) -> MentionReactionState:
-    """Invoke the LLM and store the response (node 2)."""
+async def call_mention_llm(state: MentionReactionState) -> MentionReactionState:
+    """Invoke the LLM asynchronously and store the response (node 2)."""
     from langchain_core.messages import HumanMessage
 
     llm = _get_mention_llm()
-    response = llm.invoke([HumanMessage(content=state["result"])])
+    response = await llm.ainvoke([HumanMessage(content=state["result"])])
     return {**state, "result": response.content}
 
 
@@ -258,8 +267,8 @@ async def handle_agent_mentions(
             if not agent:
                 continue  # not a valid agent key – skip
 
-            # Run the LangGraph pipeline
-            result = mention_reaction_graph.invoke(
+            # Run the LangGraph pipeline (async to avoid blocking the event loop)
+            result = await mention_reaction_graph.ainvoke(
                 {
                     "agent_name": agent.name,
                     "task_title": task.title,
