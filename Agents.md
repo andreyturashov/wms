@@ -4,25 +4,17 @@ This document describes the AI agent capabilities for the WMS (Workflow Manageme
 
 ## Agent Types
 
-### 1. Task Automation Agent
+### 1. Executor
+- Executes task automation, scheduling, and notifications
 - Automatically categorizes and prioritizes new tasks
-- Suggests due dates based on task complexity
+- Monitors task deadlines and sends reminders
 - Routes tasks to appropriate columns based on keywords
 
-### 2. Notification Agent
-- Monitors task deadlines
-- Sends reminders for overdue tasks
-- Alerts users about tasks due today
-
-### 3. Analytics Agent
-- Generates productivity reports
-- Tracks task completion rates
-- Identifies bottlenecks in workflow
-
-### 4. Assistant Agent
+### 2. Thinker
+- Analyses tasks, provides recommendations, and generates insights
+- Generates productivity reports and identifies bottlenecks
 - Helps create new tasks with natural language
-- Answers questions about the system
-- Provides task recommendations
+- Provides task recommendations and smart deadline estimation
 
 ## Agent Architecture
 

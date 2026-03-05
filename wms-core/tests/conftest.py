@@ -49,7 +49,7 @@ async def setup_database():
 
 
 async def seed_default_agents_for_tests():
-    """Seed the four default agents using test DB session."""
+    """Seed the default agents (executor, thinker) using test DB session."""
     from app.main import DEFAULT_AGENTS
     from app.models.agent import Agent
 
@@ -75,12 +75,19 @@ async def _override_get_db() -> AsyncGenerator[AsyncSession]:
 # Override the DB dependency for the whole test suite
 app.dependency_overrides[get_db] = _override_get_db
 
-# Point the AI analysis module at the test session factory and ensure tests
-# always use MockLLM (never a real Gemini call).
+# Point the AI analysis module at the test session factory
 from app.ai.task_analysis import MockLLM, set_llm, set_session_factory
 
 set_session_factory(TestSession)
 set_llm(MockLLM())
+
+# Point the agent-mention module at the test session factory
+from app.ai.agent_mention import MockMentionLLM, set_mention_llm
+from app.ai.agent_mention import set_session_factory as set_mention_session_factory
+
+set_mention_session_factory(TestSession)
+# Force mock LLM in tests so they never hit a real Ollama server
+set_mention_llm(MockMentionLLM())
 
 
 # ---------------------------------------------------------------------------

@@ -34,8 +34,8 @@ describe('Sidebar', () => {
 
   it('renders all agent names', () => {
     render(<Sidebar {...defaultProps} />);
-    expect(screen.getByText('Assistant Agent')).toBeInTheDocument();
-    expect(screen.getByText('Analytics Agent')).toBeInTheDocument();
+    expect(screen.getByText('Executor Agent')).toBeInTheDocument();
+    expect(screen.getByText('Thinker Agent')).toBeInTheDocument();
   });
 
   it('calls onSelect with user info on click', async () => {
@@ -55,12 +55,12 @@ describe('Sidebar', () => {
     const user = userEvent.setup();
     render(<Sidebar {...defaultProps} />);
 
-    await user.click(screen.getByText('Assistant Agent'));
+    await user.click(screen.getByText('Executor Agent'));
 
     expect(defaultProps.onSelect).toHaveBeenCalledWith({
       type: 'agent',
       id: 'agent-1',
-      name: 'Assistant Agent',
+      name: 'Executor Agent',
     });
   });
 
@@ -83,11 +83,11 @@ describe('Sidebar', () => {
     render(
       <Sidebar
         {...defaultProps}
-        selection={{ type: 'agent', id: 'agent-1', name: 'Assistant Agent' }}
+        selection={{ type: 'agent', id: 'agent-1', name: 'Executor Agent' }}
       />,
     );
 
-    await user.click(screen.getByText('Assistant Agent'));
+    await user.click(screen.getByText('Executor Agent'));
 
     expect(defaultProps.onSelect).toHaveBeenCalledWith(null);
   });
@@ -108,11 +108,11 @@ describe('Sidebar', () => {
     render(
       <Sidebar
         {...defaultProps}
-        selection={{ type: 'agent', id: 'agent-1', name: 'Assistant Agent' }}
+        selection={{ type: 'agent', id: 'agent-1', name: 'Executor Agent' }}
       />,
     );
 
-    const agentBtn = screen.getByText('Assistant Agent').closest('button')!;
+    const agentBtn = screen.getByText('Executor Agent').closest('button')!;
     expect(agentBtn.className).toContain('bg-indigo-100');
   });
 
