@@ -210,7 +210,9 @@ task_analysis_graph = _graph_builder.compile()
 # Public helper - run the graph and persist the result as a comment
 # ---------------------------------------------------------------------------
 
-# Pluggable session factory - overridden by tests via set_session_factory()
+ASSISTANT_AGENT_KEY = "thinker"
+
+# Pluggable session factory – overridden by tests via set_session_factory()
 _session_factory = AsyncSessionLocal
 
 

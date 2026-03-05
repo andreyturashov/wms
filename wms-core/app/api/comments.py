@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.ai.agent_mention import handle_agent_mentions
 from app.api.auth import get_current_user
 from app.db.session import get_db
 from app.models.agent import Agent
@@ -117,8 +118,22 @@ async def create_task_comment(
 
     db.add(comment)
     await db.commit()
-    # Re-fetch with relationships loaded
-    result = await db.execute(select(Comment).where(Comment.id == comment.id).options(selectinload(Comment.replies)))
+
+    # Trigger agent mention reactions (replies posted in a separate session)
+    await handle_agent_mentions(
+        task_id=task_id,
+        comment_id=comment.id,
+        comment_content=comment.content,
+    )
+
+    # Re-fetch with relationships loaded; populate_existing ensures the identity
+    # map is refreshed so selectinload picks up replies created by handle_agent_mentions.
+    result = await db.execute(
+        select(Comment)
+        .where(Comment.id == comment.id)
+        .options(selectinload(Comment.replies))
+        .execution_options(populate_existing=True)
+    )
     return result.scalar_one()
 
 

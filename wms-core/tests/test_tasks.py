@@ -197,9 +197,9 @@ class TestUpdateTask:
 
     async def test_update_agent_by_key(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"assigned_agent": "executor"})
+        resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"assigned_agent": "thinker"})
         assert resp.status_code == 200
-        assert resp.json()["assigned_agent"] == "executor"
+        assert resp.json()["assigned_agent"] == "thinker"
 
     async def test_unassign_agent(self, authed_client: AsyncClient):
         agent_id = await get_agent_id(authed_client)
