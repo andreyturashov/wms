@@ -23,7 +23,7 @@ async def create_task(client: AsyncClient, **overrides) -> dict:
     return resp.json()
 
 
-async def get_agent_id(client: AsyncClient, key: str = "task_automation") -> str:
+async def get_agent_id(client: AsyncClient, key: str = "executor") -> str:
     """Fetch agents list and return the id for the given key."""
     resp = await client.get("/api/agents")
     assert resp.status_code == 200
@@ -54,11 +54,11 @@ class TestCreateTask:
         agent_id = await get_agent_id(authed_client)
         task = await create_task(authed_client, agent_id=agent_id)
         assert task["agent_id"] == agent_id
-        assert task["assigned_agent"] == "task_automation"
+        assert task["assigned_agent"] == "executor"
 
     async def test_create_task_with_assigned_agent_key(self, authed_client: AsyncClient):
-        task = await create_task(authed_client, assigned_agent="notification")
-        assert task["assigned_agent"] == "notification"
+        task = await create_task(authed_client, assigned_agent="thinker")
+        assert task["assigned_agent"] == "thinker"
         assert task["agent_id"] is not None
 
     async def test_create_task_invalid_agent_id(self, authed_client: AsyncClient):
@@ -189,17 +189,17 @@ class TestUpdateTask:
 
     async def test_update_agent_by_id(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        agent_id = await get_agent_id(authed_client, "analytics")
+        agent_id = await get_agent_id(authed_client, "thinker")
         resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"agent_id": agent_id})
         assert resp.status_code == 200
         assert resp.json()["agent_id"] == agent_id
-        assert resp.json()["assigned_agent"] == "analytics"
+        assert resp.json()["assigned_agent"] == "thinker"
 
     async def test_update_agent_by_key(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"assigned_agent": "assistant"})
+        resp = await authed_client.put(f"/api/tasks/{task['id']}", json={"assigned_agent": "thinker"})
         assert resp.status_code == 200
-        assert resp.json()["assigned_agent"] == "assistant"
+        assert resp.json()["assigned_agent"] == "thinker"
 
     async def test_unassign_agent(self, authed_client: AsyncClient):
         agent_id = await get_agent_id(authed_client)
@@ -321,20 +321,20 @@ class TestUpdateStatus:
 class TestAssignAgent:
     async def test_assign_by_agent_id(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
-        agent_id = await get_agent_id(authed_client, "notification")
+        agent_id = await get_agent_id(authed_client, "thinker")
         resp = await authed_client.put(f"/api/tasks/{task['id']}/assign", json={"agent_id": agent_id})
         assert resp.status_code == 200
         assert resp.json()["agent_id"] == agent_id
-        assert resp.json()["assigned_agent"] == "notification"
+        assert resp.json()["assigned_agent"] == "thinker"
 
     async def test_assign_by_key(self, authed_client: AsyncClient):
         task = await create_task(authed_client)
         resp = await authed_client.put(
             f"/api/tasks/{task['id']}/assign",
-            json={"assigned_agent": "analytics"},
+            json={"assigned_agent": "executor"},
         )
         assert resp.status_code == 200
-        assert resp.json()["assigned_agent"] == "analytics"
+        assert resp.json()["assigned_agent"] == "executor"
 
     async def test_unassign(self, authed_client: AsyncClient):
         agent_id = await get_agent_id(authed_client)

@@ -24,7 +24,7 @@ async def create_task(client: AsyncClient, **overrides) -> dict:
     return resp.json()
 
 
-async def get_agent_id(client: AsyncClient, key: str = "task_automation") -> str:
+async def get_agent_id(client: AsyncClient, key: str = "executor") -> str:
     resp = await client.get("/api/agents")
     assert resp.status_code == 200
     agents = resp.json()

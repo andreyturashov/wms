@@ -49,7 +49,13 @@ export function CommentSection({ taskId, agents, users, currentUser }: CommentSe
         agent_id: agentId,
         parent_id: replyTo?.id ?? null,
       });
-      if (replyTo) {
+
+      // If the comment has agent replies (from @mentions), re-fetch all comments
+      // to ensure the full tree is up-to-date. Otherwise, update state locally.
+      if (comment.replies && comment.replies.length > 0) {
+        const data = await commentsApi.getByTaskId(taskId);
+        setComments(data);
+      } else if (replyTo) {
         // Add reply nested under its parent
         setComments((prev) => addReply(prev, replyTo.id, comment));
       } else {

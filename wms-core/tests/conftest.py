@@ -80,6 +80,14 @@ from app.ai.task_analysis import set_session_factory
 
 set_session_factory(TestSession)
 
+# Point the agent-mention module at the test session factory
+from app.ai.agent_mention import MockMentionLLM, set_mention_llm
+from app.ai.agent_mention import set_session_factory as set_mention_session_factory
+
+set_mention_session_factory(TestSession)
+# Force mock LLM in tests so they never hit a real Ollama server
+set_mention_llm(MockMentionLLM())
+
 
 # ---------------------------------------------------------------------------
 # HTTP client fixture

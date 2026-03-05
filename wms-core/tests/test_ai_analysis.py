@@ -33,7 +33,7 @@ class TestAITaskAnalysis:
         assert len(comments) == 1
         c = comments[0]
         assert c["author_type"] == "agent"
-        assert c["author_name"] == "Assistant Agent"
+        assert c["author_name"] == "Thinker"
         assert "AI Analysis" in c["content"]
         assert c["parent_id"] is None
 
