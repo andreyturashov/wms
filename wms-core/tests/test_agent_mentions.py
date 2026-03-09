@@ -276,3 +276,149 @@ class TestExtractMentionedNames:
         from app.ai.agent_mention import extract_mentioned_agent_names
 
         assert extract_mentioned_agent_names("@Thinker what do you think?") == ["Thinker"]
+
+
+@pytest.mark.anyio
+class TestBuildMentionLlm:
+    """Tests for _build_llm in agent_mention module."""
+
+    async def test_build_llm_mock_provider(self):
+        """When LLM_PROVIDER is 'mock', _build_llm returns MockMentionLLM."""
+        from unittest.mock import patch
+
+        from app.ai.agent_mention import MockMentionLLM, _build_llm
+
+        with patch("app.core.config.settings") as mock_settings:
+            mock_settings.LLM_PROVIDER = "mock"
+            llm = _build_llm()
+        assert isinstance(llm, MockMentionLLM)
+
+    async def test_get_mention_llm_lazy_init(self):
+        """_get_mention_llm calls _build_llm when _mention_llm is None."""
+        from unittest.mock import patch
+
+        from app.ai.agent_mention import (
+            MockMentionLLM,
+            _get_mention_llm,
+            set_mention_llm,
+        )
+
+        # Reset to None so lazy init triggers
+        set_mention_llm(None)
+        try:
+            with patch("app.core.config.settings") as mock_settings:
+                mock_settings.LLM_PROVIDER = "mock"
+                llm = _get_mention_llm()
+            assert isinstance(llm, MockMentionLLM)
+        finally:
+            # Restore mock LLM for other tests
+            set_mention_llm(MockMentionLLM())
+
+    async def test_build_llm_ollama_success(self):
+        """When LLM_PROVIDER is 'ollama' and ChatOllama works, returns ChatOllama."""
+        from unittest.mock import MagicMock, patch
+
+        from app.ai.agent_mention import _build_llm
+
+        mock_ollama_cls = MagicMock()
+        mock_ollama_instance = MagicMock()
+        mock_ollama_cls.return_value = mock_ollama_instance
+
+        with patch("app.core.config.settings") as mock_settings:
+            mock_settings.LLM_PROVIDER = "ollama"
+            mock_settings.OLLAMA_MODEL = "llama3"
+            mock_settings.OLLAMA_BASE_URL = "http://localhost:11434"
+            with patch.dict(
+                "sys.modules",
+                {"langchain_ollama": MagicMock(ChatOllama=mock_ollama_cls)},
+            ):
+                llm = _build_llm()
+        assert llm is mock_ollama_instance
+
+    async def test_build_llm_ollama_failure_fallback(self):
+        """When LLM_PROVIDER is 'ollama' but import fails, falls back to MockMentionLLM."""
+        from unittest.mock import patch
+
+        from app.ai.agent_mention import MockMentionLLM, _build_llm
+
+        with patch("app.core.config.settings") as mock_settings:
+            mock_settings.LLM_PROVIDER = "ollama"
+            mock_settings.OLLAMA_MODEL = "llama3"
+            mock_settings.OLLAMA_BASE_URL = "http://localhost:11434"
+            # Remove langchain_ollama from sys.modules to force ImportError
+            with patch.dict("sys.modules", {"langchain_ollama": None}):
+                llm = _build_llm()
+        assert isinstance(llm, MockMentionLLM)
+
+
+@pytest.mark.anyio
+class TestBuildMentionPrompt:
+    """Direct tests for build_mention_prompt and call_mention_llm."""
+
+    async def test_build_mention_prompt_directly(self):
+        """build_mention_prompt returns state with populated result prompt."""
+        from app.ai.agent_mention import build_mention_prompt
+
+        state = {
+            "agent_name": "Executor",
+            "task_title": "Fix bug",
+            "task_description": "There is a bug in login",
+            "task_priority": "high",
+            "task_status": "in_progress",
+            "comment_content": "@Executor please look at this",
+            "result": "",
+        }
+        out = build_mention_prompt(state)
+        assert "Executor" in out["result"]
+        assert "Fix bug" in out["result"]
+        assert "There is a bug in login" in out["result"]
+        assert "high" in out["result"]
+        assert "in_progress" in out["result"]
+        assert "@Executor please look at this" in out["result"]
+
+    async def test_build_mention_prompt_no_description(self):
+        """build_mention_prompt shows '(none)' when description is empty."""
+        from app.ai.agent_mention import build_mention_prompt
+
+        state = {
+            "agent_name": "Thinker",
+            "task_title": "Task",
+            "task_description": "",
+            "task_priority": "low",
+            "task_status": "todo",
+            "comment_content": "@Thinker help",
+            "result": "",
+        }
+        out = build_mention_prompt(state)
+        assert "(none)" in out["result"]
+
+    async def test_call_mention_llm_directly(self):
+        """call_mention_llm invokes the LLM and stores response in result."""
+        from app.ai.agent_mention import (
+            MockMentionLLM,
+            call_mention_llm,
+            set_mention_llm,
+        )
+
+        set_mention_llm(MockMentionLLM())
+        state = {
+            "agent_name": "Executor",
+            "task_title": "Fix bug",
+            "task_description": "Bug in login",
+            "task_priority": "high",
+            "task_status": "in_progress",
+            "comment_content": "@Executor help",
+            "result": (
+                "You are **Executor**\n\n"
+                "Title: Fix bug\n"
+                "Description: Bug in login\n"
+                "Priority: high\n"
+                "Status: in_progress\n\n"
+                "--- User comment ---\n"
+                "@Executor help\n\n"
+                "Respond in Markdown."
+            ),
+        }
+        out = await call_mention_llm(state)
+        assert "Task Summary" in out["result"]
+        assert "Fix bug" in out["result"]
