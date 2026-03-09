@@ -238,7 +238,7 @@ describe('CommentPanel', () => {
       expect(screen.getByText(/Create a task assigned to alice/)).toBeInTheDocument();
     });
     expect(screen.getByPlaceholderText(/Task title for alice/)).toBeInTheDocument();
-    expect(screen.getByText('+ Create Task')).toBeInTheDocument();
+    expect(screen.getByText('+ Create')).toBeInTheDocument();
   });
 
   it('creates a task assigned to the selected user', async () => {
@@ -259,7 +259,7 @@ describe('CommentPanel', () => {
 
     const textarea = screen.getByPlaceholderText(/Task title for alice/);
     await user.type(textarea, 'New task title\nSome description');
-    await user.click(screen.getByText('+ Create Task'));
+    await user.click(screen.getByText('+ Create'));
 
     await waitFor(() => {
       expect(mockTaskCreate).toHaveBeenCalledWith({
@@ -292,7 +292,7 @@ describe('CommentPanel', () => {
 
     const textarea = screen.getByPlaceholderText(/Task title for Executor Agent/);
     await user.type(textarea, 'Agent task');
-    await user.click(screen.getByText('+ Create Task'));
+    await user.click(screen.getByText('+ Create'));
 
     await waitFor(() => {
       expect(mockTaskCreate).toHaveBeenCalledWith({
@@ -315,7 +315,7 @@ describe('CommentPanel', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('+ Create Task')).toBeDisabled();
+      expect(screen.getByText('+ Create')).toBeDisabled();
     });
   });
 });

@@ -150,7 +150,7 @@ export function MentionTextarea({
   };
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       <textarea
         ref={textareaRef}
         value={value}

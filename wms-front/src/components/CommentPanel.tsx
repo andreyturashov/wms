@@ -180,17 +180,27 @@ export function CommentPanel({ selection, agents, users, currentUser, onTaskCrea
                 {/* Inline reply form */}
                 {replyingTo === c.id && (
                   <div className="mt-2 border-t border-gray-200 pt-2">
-                    <MentionTextarea
-                      value={replyContent}
-                      onChange={setReplyContent}
-                      onKeyDown={(e) => handleReplyKeyDown(e, c)}
-                      placeholder={`Reply to ${c.author_name}…`}
-                      rows={2}
-                      className="w-full text-xs px-2 py-1 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      users={users}
-                      agents={agents}
-                    />
-                    <div className="flex justify-end gap-1 mt-1">
+                    <div className="relative">
+                      <MentionTextarea
+                        value={replyContent}
+                        onChange={setReplyContent}
+                        onKeyDown={(e) => handleReplyKeyDown(e, c)}
+                        placeholder={`Reply to ${c.author_name}…`}
+                        rows={2}
+                        className="w-full text-xs px-3 py-2 pr-16 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 placeholder-gray-400"
+                        users={users}
+                        agents={agents}
+                      />
+                      <button
+                        onClick={() => void handleReply(c)}
+                        disabled={submitting || !replyContent.trim()}
+                        className="absolute right-2 bottom-2 text-[10px] font-medium px-2 py-0.5 text-white bg-blue-500 rounded-md hover:bg-blue-600 disabled:opacity-40 transition-colors"
+                      >
+                        {submitting ? '…' : 'Reply'}
+                      </button>
+                    </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-[10px] text-gray-400">⌘+Enter to send</span>
                       <button
                         onClick={() => {
                           setReplyingTo(null);
@@ -199,13 +209,6 @@ export function CommentPanel({ selection, agents, users, currentUser, onTaskCrea
                         className="text-[10px] px-2 py-0.5 text-gray-500 hover:text-gray-700"
                       >
                         Cancel
-                      </button>
-                      <button
-                        onClick={() => void handleReply(c)}
-                        disabled={submitting || !replyContent.trim()}
-                        className="text-[10px] px-2 py-0.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        {submitting ? '…' : 'Reply'}
                       </button>
                     </div>
                   </div>
@@ -222,21 +225,21 @@ export function CommentPanel({ selection, agents, users, currentUser, onTaskCrea
           <p className="text-[10px] text-gray-500 mb-1">
             Create a task assigned to {selection.name} (first line = title)
           </p>
-          <textarea
-            value={taskContent}
-            onChange={(e) => setTaskContent(e.target.value)}
-            onKeyDown={handleTaskKeyDown}
-            placeholder={`Task title for ${selection.name}…\nOptional description`}
-            rows={2}
-            className="w-full text-xs px-2 py-1 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <div className="flex justify-end mt-1">
+          <div className="relative">
+            <textarea
+              value={taskContent}
+              onChange={(e) => setTaskContent(e.target.value)}
+              onKeyDown={handleTaskKeyDown}
+              placeholder={`Task title for ${selection.name}…\nOptional description`}
+              rows={2}
+              className="w-full text-xs px-3 py-2 pr-20 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 placeholder-gray-400"
+            />
             <button
               onClick={() => void handleCreateTask()}
               disabled={creatingTask || !taskContent.trim()}
-              className="text-xs px-2 py-0.5 text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
+              className="absolute right-2 bottom-2 text-[10px] font-medium px-2 py-0.5 text-white bg-green-500 rounded-md hover:bg-green-600 disabled:opacity-40 transition-colors"
             >
-              {creatingTask ? '…' : '+ Create Task'}
+              {creatingTask ? '…' : '+ Create'}
             </button>
           </div>
         </div>

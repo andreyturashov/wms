@@ -61,15 +61,18 @@ export function CommentSection({ taskId, agents, users, currentUser }: CommentSe
         setComments((prev) => [...prev, comment]);
       }
       setNewContent('');
+      const repliedTo = replyTo; // capture before clearing
       setReplyTo(null);
 
-      // Agent reply is generated in the background — poll briefly to pick it up
-      if (!agentId && mentionsAgent(content)) {
+      // Agent reply is generated in the background — poll briefly to pick it up.
+      // Triggers when: (a) comment mentions an agent, or (b) replying to an agent comment.
+      const isReplyToAgent = repliedTo?.author_type === 'agent';
+      if (!agentId && (mentionsAgent(content) || isReplyToAgent)) {
         const poll = async (retries: number, delay: number) => {
           for (let i = 0; i < retries; i++) {
             await new Promise((r) => setTimeout(r, delay));
             const data = await commentsApi.getByTaskId(taskId);
-            const updated = data.find((c: Comment) => c.id === comment.id);
+            const updated = findComment(data, comment.id);
             if (updated && updated.replies && updated.replies.length > 0) {
               setComments(data);
               return;
@@ -86,6 +89,16 @@ export function CommentSection({ taskId, agents, users, currentUser }: CommentSe
     } finally {
       setSubmitting(false);
     }
+  };
+
+  /** Recursively find a comment by id in a nested tree */
+  const findComment = (list: Comment[], id: string): Comment | undefined => {
+    for (const c of list) {
+      if (c.id === id) return c;
+      const found = findComment(c.replies || [], id);
+      if (found) return found;
+    }
+    return undefined;
   };
 
   /** Recursively insert a reply under the matching parent */
@@ -201,24 +214,31 @@ export function CommentSection({ taskId, agents, users, currentUser }: CommentSe
       )}
 
       {/* New comment form */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-1">
-        <div className="flex gap-1">
+      <form onSubmit={handleSubmit} className="space-y-2">
+        <div className="relative">
           <MentionTextarea
             value={newContent}
             onChange={setNewContent}
             onKeyDown={handleKeyDown}
             placeholder={replyTo ? `Reply to ${replyTo.author_name}…` : 'Write a comment… (type @ to mention)'}
             rows={2}
-            className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full text-xs px-3 py-2 pr-16 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 placeholder-gray-400"
             users={users}
             agents={agents}
           />
+          <button
+            type="submit"
+            disabled={submitting || !newContent.trim()}
+            className="absolute right-2 bottom-2 text-[11px] font-medium px-3 py-1 text-white bg-blue-500 rounded-md hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {submitting ? '…' : replyTo ? 'Reply' : 'Send'}
+          </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center">
           <select
             value={postAs}
             onChange={(e) => setPostAs(e.target.value)}
-            className="text-[11px] px-1.5 py-0.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="text-[11px] text-gray-500 px-2 py-1 border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
           >
             <option value="">Post as {currentUser.username}</option>
             {agents.map((a) => (
@@ -227,13 +247,7 @@ export function CommentSection({ taskId, agents, users, currentUser }: CommentSe
               </option>
             ))}
           </select>
-          <button
-            type="submit"
-            disabled={submitting || !newContent.trim()}
-            className="ml-auto text-xs px-2 py-0.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            {submitting ? '…' : replyTo ? 'Reply' : 'Send'}
-          </button>
+          <span className="ml-auto text-[10px] text-gray-400">⌘+Enter to send</span>
         </div>
       </form>
     </div>

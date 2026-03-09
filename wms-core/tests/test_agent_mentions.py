@@ -50,8 +50,8 @@ class TestAgentMentionReaction:
         reply = user_comment["replies"][0]
         assert reply["author_type"] == "agent"
         assert reply["author_name"] == "Executor"
-        assert "Task Summary" in reply["content"]
         assert task["title"] in reply["content"]
+        assert "Happy to help" in reply["content"]
 
     async def test_post_response_and_background_reply(self, authed_client: AsyncClient):
         """The agent reply is created in the background; a GET should return it."""
@@ -76,7 +76,7 @@ class TestAgentMentionReaction:
         reply = user_comment["replies"][0]
         assert reply["author_type"] == "agent"
         assert reply["author_name"] == "Executor"
-        assert "Task Summary" in reply["content"]
+        assert task["title"] in reply["content"]
 
     async def test_mention_thinker_triggers_reply(self, authed_client: AsyncClient):
         """Mentioning @Thinker in a comment should produce a Thinker agent reply."""
@@ -95,7 +95,7 @@ class TestAgentMentionReaction:
         assert len(user_comment["replies"]) == 1
         reply = user_comment["replies"][0]
         assert reply["author_name"] == "Thinker"
-        assert "Task Summary" in reply["content"]
+        assert task["title"] in reply["content"]
 
     async def test_mention_multiple_agents(self, authed_client: AsyncClient):
         """Mentioning both @Executor and @Thinker should produce two replies."""
@@ -192,8 +192,8 @@ class TestAgentMentionReaction:
         reply = user_comment["replies"][0]
 
         # The reply should contain the quoted comment text
-        assert "Your comment" in reply["content"]
-        assert "analyse the dependencies" in reply["content"]
+        assert task["title"] in reply["content"]
+        assert "Happy to help" in reply["content"]
 
     async def test_reply_is_child_of_original_comment(self, authed_client: AsyncClient):
         """The agent reply should have parent_id pointing to the original comment."""
@@ -414,11 +414,145 @@ class TestBuildMentionPrompt:
                 "Description: Bug in login\n"
                 "Priority: high\n"
                 "Status: in_progress\n\n"
-                "--- User comment ---\n"
-                "@Executor help\n\n"
-                "Respond in Markdown."
+                "Their comment:\n"
+                "@Executor help"
             ),
         }
         out = await call_mention_llm(state)
-        assert "Task Summary" in out["result"]
         assert "Fix bug" in out["result"]
+        assert "Happy to help" in out["result"]
+
+
+@pytest.mark.anyio
+class TestAgentReply:
+    """Tests for auto-triggering an agent when a user replies to an agent comment."""
+
+    async def test_reply_to_agent_comment_triggers_reply(self, authed_client: AsyncClient):
+        """Replying to an agent comment (without @mention) should auto-trigger agent."""
+        task = await create_task(authed_client)
+
+        # 1. Post a comment mentioning @Executor to get an agent reply
+        resp = await authed_client.post(
+            f"/api/tasks/{task['id']}/comments",
+            json={"content": "@Executor what's the status?"},
+        )
+        assert resp.status_code == 201
+
+        # Get agent reply
+        resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
+        comments = resp.json()
+        user_comment = next(c for c in comments if "@Executor" in c["content"])
+        agent_reply = user_comment["replies"][0]
+        assert agent_reply["author_type"] == "agent"
+
+        # 2. Reply to the agent's comment without an @mention
+        resp = await authed_client.post(
+            f"/api/tasks/{task['id']}/comments",
+            json={
+                "content": "Thanks, can you elaborate?",
+                "parent_id": agent_reply["id"],
+            },
+        )
+        assert resp.status_code == 201
+        follow_up = resp.json()
+
+        # 3. Fetch comments — the agent should have auto-replied
+        resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
+        comments = resp.json()
+
+        # Find the user's follow-up comment among all nested replies
+        def find_comment(coms, cid):
+            for c in coms:
+                if c["id"] == cid:
+                    return c
+                found = find_comment(c.get("replies", []), cid)
+                if found:
+                    return found
+            return None
+
+        follow_up_full = find_comment(comments, follow_up["id"])
+        assert follow_up_full is not None
+        assert len(follow_up_full["replies"]) == 1
+        auto_reply = follow_up_full["replies"][0]
+        assert auto_reply["author_type"] == "agent"
+        assert auto_reply["author_name"] == "Executor"
+        assert task["title"] in auto_reply["content"]
+
+    async def test_reply_to_user_comment_no_auto_trigger(self, authed_client: AsyncClient):
+        """Replying to a non-agent comment should NOT auto-trigger an agent."""
+        task = await create_task(authed_client)
+
+        # Post a normal user comment
+        resp = await authed_client.post(
+            f"/api/tasks/{task['id']}/comments",
+            json={"content": "Just a regular comment"},
+        )
+        assert resp.status_code == 201
+        user_comment = resp.json()
+
+        # Reply to the user comment
+        resp = await authed_client.post(
+            f"/api/tasks/{task['id']}/comments",
+            json={
+                "content": "Replying to myself",
+                "parent_id": user_comment["id"],
+            },
+        )
+        assert resp.status_code == 201
+        reply = resp.json()
+
+        # Fetch & verify — no auto agent reply
+        resp = await authed_client.get(f"/api/tasks/{task['id']}/comments")
+        comments = resp.json()
+        parent = next(c for c in comments if c["id"] == user_comment["id"])
+        child = next(r for r in parent["replies"] if r["id"] == reply["id"])
+        assert len(child.get("replies", [])) == 0
+
+    async def test_handle_agent_reply_missing_task(self):
+        """handle_agent_reply returns early when task doesn't exist."""
+        from app.ai.agent_mention import handle_agent_reply
+
+        # Should not raise
+        await handle_agent_reply(
+            task_id=str(uuid.uuid4()),
+            comment_id=str(uuid.uuid4()),
+            comment_content="test",
+            parent_agent_id=str(uuid.uuid4()),
+        )
+
+    async def test_handle_agent_reply_inactive_agent(self, authed_client: AsyncClient):
+        """handle_agent_reply returns early when agent is inactive."""
+        from app.ai.agent_mention import handle_agent_reply
+        from tests.conftest import TestSession
+
+        task = await create_task(authed_client)
+
+        # Get agent id
+        async with TestSession() as db:
+            from sqlalchemy import select as sel
+
+            from app.models.agent import Agent as Ag
+
+            res = await db.execute(sel(Ag).where(Ag.key == "executor"))
+            agent = res.scalar_one()
+            agent.is_active = False
+            await db.commit()
+            agent_id = agent.id
+
+        try:
+            # Should return early without creating a reply
+            await handle_agent_reply(
+                task_id=task["id"],
+                comment_id=str(uuid.uuid4()),
+                comment_content="test",
+                parent_agent_id=agent_id,
+            )
+        finally:
+            # Re-activate for other tests
+            async with TestSession() as db:
+                from app.models.agent import Agent as Ag2
+
+                res = await db.execute(sel(Ag2).where(Ag2.id == agent_id))
+                agent = res.scalar_one()
+                agent.is_active = True
+                await db.commit()
