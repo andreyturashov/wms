@@ -55,7 +55,6 @@ class MockMentionLLM(BaseChatModel):
         # Parse structured fields out of the prompt
         lines = prompt_text.split("\n")
         task_title = ""
-        task_desc = ""
         task_priority = ""
         task_status = ""
         comment_text = ""
@@ -66,29 +65,22 @@ class MockMentionLLM(BaseChatModel):
             if stripped.startswith("Title:"):
                 task_title = stripped.split(":", 1)[1].strip()
             elif stripped.startswith("Description:"):
-                task_desc = stripped.split(":", 1)[1].strip()
+                pass  # parsed but not used in mock response
             elif stripped.startswith("Priority:"):
                 task_priority = stripped.split(":", 1)[1].strip()
             elif stripped.startswith("Status:"):
                 task_status = stripped.split(":", 1)[1].strip()
-            elif stripped == "--- User comment ---":
+            elif stripped == "Their comment:":
                 in_comment = True
-            elif in_comment and stripped and not stripped.startswith("Respond in Markdown"):
+            elif in_comment and stripped:
                 comment_text += ("\n" if comment_text else "") + line
 
         comment_text = comment_text.strip()
 
         response = (
-            f"**Task Summary**\n\n"
-            f"• **Title**: {task_title}\n"
-            f"• **Description**: {task_desc or '(none)'}\n"
-            f"• **Priority**: {task_priority}\n"
-            f"• **Status**: {task_status}\n\n"
-            f"**Your comment**:\n"
-            f"> {comment_text}\n\n"
-            f"I've reviewed the task and the comment. "
-            f"The task is currently **{task_status}** with **{task_priority}** priority. "
-            f"Let me know if you need further assistance."
+            f'Got it — the task "{task_title}" is {task_status} '
+            f"({task_priority} priority). "
+            f"Happy to help if you need anything else!"
         )
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content=response))])
 
@@ -152,20 +144,19 @@ class MentionReactionState(TypedDict):
 def build_mention_prompt(state: MentionReactionState) -> MentionReactionState:
     """Build the prompt for the mention-reaction LLM call (node 1)."""
     prompt = (
-        f"You are **{state['agent_name']}**, an AI agent embedded in a "
+        f"You are **{state['agent_name']}**, an AI assistant in a "
         f"project-management system.\n\n"
-        f"A team member mentioned you in a comment on a task. Your job is to:\n"
-        f"1. Briefly summarise the task.\n"
-        f"2. Answer or address the user's comment / question.\n"
-        f"3. Offer actionable suggestions if appropriate.\n\n"
-        f"--- Task details ---\n"
+        f"A teammate mentioned you in a comment. Reply like a helpful "
+        f"colleague chatting in a thread — short and natural (1-3 sentences). "
+        f"Do NOT include headers, bullet lists, or task summaries. "
+        f"Just answer the question or respond to what they said.\n\n"
+        f"Task context (for your reference only, don't repeat it back):\n"
         f"Title: {state['task_title']}\n"
         f"Description: {state['task_description'] or '(none)'}\n"
         f"Priority: {state['task_priority']}\n"
         f"Status: {state['task_status']}\n\n"
-        f"--- User comment ---\n"
-        f"{state['comment_content']}\n\n"
-        f"Respond in Markdown. Be concise but helpful."
+        f"Their comment:\n"
+        f"{state['comment_content']}"
     )
     return {**state, "result": prompt}
 
@@ -290,4 +281,51 @@ async def handle_agent_mentions(
             )
             db.add(reply)
 
+        await db.commit()
+
+
+async def handle_agent_reply(
+    task_id: str,
+    comment_id: str,
+    comment_content: str,
+    parent_agent_id: str,
+) -> None:
+    """
+    When a user replies to an agent's comment, automatically trigger that
+    agent to respond — even without an explicit @mention.
+    """
+    async with _session_factory() as db:
+        # Load the task
+        task_result = await db.execute(select(Task).where(Task.id == task_id))
+        task = task_result.scalar_one_or_none()
+        if not task:
+            return
+
+        # Load the parent agent
+        agent_result = await db.execute(select(Agent).where(Agent.id == parent_agent_id, Agent.is_active.is_(True)))
+        agent = agent_result.scalar_one_or_none()
+        if not agent:
+            return
+
+        result = await mention_reaction_graph.ainvoke(
+            {
+                "agent_name": agent.name,
+                "task_title": task.title,
+                "task_description": task.description or "",
+                "task_priority": task.priority,
+                "task_status": task.status,
+                "comment_content": comment_content,
+                "result": "",
+            }
+        )
+
+        reply = Comment(
+            id=str(uuid.uuid4()),
+            task_id=task_id,
+            content=result["result"],
+            user_id=None,
+            agent_id=agent.id,
+            parent_id=comment_id,
+        )
+        db.add(reply)
         await db.commit()

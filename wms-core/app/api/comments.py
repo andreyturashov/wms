@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.ai.agent_mention import handle_agent_mentions
+from app.ai.agent_mention import handle_agent_mentions, handle_agent_reply
 from app.api.auth import get_current_user
 from app.db.session import get_db
 from app.models.agent import Agent
@@ -56,14 +56,27 @@ async def get_task_comments(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Return only top-level comments; replies are nested via the relationship
-    result = await db.execute(
-        select(Comment)
-        .where(Comment.task_id == task_id, Comment.parent_id.is_(None))
-        .options(selectinload(Comment.replies).selectinload(Comment.replies))
-        .order_by(Comment.created_at.asc())
-    )
-    return result.scalars().all()
+    # Load ALL comments for this task (flat) and build the nested tree in code
+    # so there is no hard limit on nesting depth.
+    result = await db.execute(select(Comment).where(Comment.task_id == task_id).order_by(Comment.created_at.asc()))
+    all_comments = result.scalars().all()
+
+    # Build tree: assign children into parent.replies
+    by_id: dict[str, Comment] = {}
+    roots: list[Comment] = []
+    for c in all_comments:
+        c.replies = []  # type: ignore[assignment]
+        by_id[c.id] = c
+    for c in all_comments:
+        if c.parent_id:
+            parent = by_id.get(c.parent_id)
+            if parent:
+                parent.replies.append(c)  # type: ignore[arg-type]
+            # Orphaned reply (parent was deleted) — skip it entirely
+        else:
+            roots.append(c)
+
+    return roots
 
 
 @router.post(
@@ -109,11 +122,13 @@ async def create_task_comment(
     )
 
     # Validate parent_id if provided
+    parent_comment = None
     if payload.parent_id:
         parent_result = await db.execute(
             select(Comment).where(Comment.id == payload.parent_id, Comment.task_id == task_id)
         )
-        if not parent_result.scalar_one_or_none():
+        parent_comment = parent_result.scalar_one_or_none()
+        if not parent_comment:
             raise HTTPException(status_code=400, detail="Parent comment not found in this task")
         comment.parent_id = payload.parent_id
 
@@ -128,6 +143,19 @@ async def create_task_comment(
         comment_id=comment.id,
         comment_content=comment.content,
     )
+
+    # If user is replying to an agent comment (and didn't already @mention
+    # that agent), auto-trigger the agent to continue the conversation.
+    if (
+        parent_comment and parent_comment.agent_id and not payload.agent_id  # user comment, not agent posting
+    ):
+        background_tasks.add_task(
+            handle_agent_reply,
+            task_id=task_id,
+            comment_id=comment.id,
+            comment_content=comment.content,
+            parent_agent_id=parent_comment.agent_id,
+        )
 
     # Re-fetch with relationships loaded
     result = await db.execute(

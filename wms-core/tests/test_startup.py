@@ -65,6 +65,40 @@ class TestSeedDefaultAgents:
             agents = result.scalars().all()
         assert len(agents) == 2
 
+    async def test_removes_obsolete_agents(self):
+        """Agents whose key is not in DEFAULT_AGENTS should be removed."""
+        # Seed defaults first
+        await seed_default_agents()
+
+        # Insert an extra agent that is NOT in DEFAULT_AGENTS
+        async with _TestSession() as db:
+            db.add(
+                Agent(
+                    id=str(uuid.uuid4()),
+                    key="obsolete_bot",
+                    name="Obsolete Bot",
+                    description="Should be removed",
+                    is_active=True,
+                )
+            )
+            await db.commit()
+
+        # Verify the extra agent exists
+        async with _TestSession() as db:
+            result = await db.execute(select(Agent))
+            agents = result.scalars().all()
+        assert len(agents) == 3
+
+        # Re-run seed — obsolete agent should be removed
+        await seed_default_agents()
+
+        async with _TestSession() as db:
+            result = await db.execute(select(Agent))
+            agents = result.scalars().all()
+        keys = {a.key for a in agents}
+        assert keys == {"executor", "thinker"}
+        assert len(agents) == 2
+
 
 # ---------------------------------------------------------------------------
 # ensure_task_agent_fk_column
