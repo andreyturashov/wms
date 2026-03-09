@@ -68,8 +68,11 @@ async def get_task_comments(
         c.replies = []  # type: ignore[assignment]
         by_id[c.id] = c
     for c in all_comments:
-        if c.parent_id and c.parent_id in by_id:
-            by_id[c.parent_id].replies.append(c)  # type: ignore[arg-type]
+        if c.parent_id:
+            parent = by_id.get(c.parent_id)
+            if parent:
+                parent.replies.append(c)  # type: ignore[arg-type]
+            # Orphaned reply (parent was deleted) — skip it entirely
         else:
             roots.append(c)
 
