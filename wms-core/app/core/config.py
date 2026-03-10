@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # LLM
     LLM_PROVIDER: str = "mock"  # "mock" | "ollama"
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "llama3.1"
+    OLLAMA_MODEL: str = "qwen2.5:14b"  # needs tool-calling support
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

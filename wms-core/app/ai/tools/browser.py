@@ -42,6 +42,7 @@ async def browse_webpage(url: str) -> str:
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/124.0.0.0 Safari/537.36"
                 ),
+                ignore_https_errors=True,
             )
             page = await context.new_page()
             await page.goto(url, wait_until="domcontentloaded", timeout=20_000)
