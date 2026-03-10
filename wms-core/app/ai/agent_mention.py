@@ -150,6 +150,13 @@ def build_mention_prompt(state: MentionReactionState) -> MentionReactionState:
         f"colleague chatting in a thread — short and natural (1-3 sentences). "
         f"Do NOT include headers, bullet lists, or task summaries. "
         f"Just answer the question or respond to what they said.\n\n"
+        f"**IMPORTANT — Tool use rules:**\n"
+        f"- You have a `browse_webpage` tool. You MUST call it whenever the "
+        f"question involves real-world data (prices, schedules, availability, "
+        f"links, current info).\n"
+        f"- Do NOT guess or make up URLs, prices, or facts. Call the tool first.\n"
+        f"- After calling the tool, base your reply ONLY on the text it returned.\n"
+        f"- If the tool returns an error, say you could not fetch the page.\n\n"
         f"Task context (for your reference only, don't repeat it back):\n"
         f"Title: {state['task_title']}\n"
         f"Description: {state['task_description'] or '(none)'}\n"
@@ -179,12 +186,34 @@ def set_mention_llm(llm: BaseChatModel | None) -> None:
 
 
 async def call_mention_llm(state: MentionReactionState) -> MentionReactionState:
-    """Invoke the LLM asynchronously and store the response (node 2)."""
+    """Invoke the LLM and store the response (node 2).
+
+    When a real LLM is configured (e.g. Ollama), this creates a ReAct agent
+    with access to the ``browse_webpage`` tool so the agent can look up live
+    information from the web.  When the mock LLM is active the tool is skipped
+    because the mock doesn't support tool calling.
+    """
     from langchain_core.messages import HumanMessage
 
     llm = _get_mention_llm()
-    response = await llm.ainvoke([HumanMessage(content=state["result"])])
-    return {**state, "result": response.content}
+
+    # Mock LLM → simple direct call (no tools)
+    if isinstance(llm, MockMentionLLM):
+        response = await llm.ainvoke([HumanMessage(content=state["result"])])
+        return {**state, "result": response.content}
+
+    # Real LLM → ReAct agent with browser tool
+    from langgraph.prebuilt import create_react_agent
+
+    from app.ai.tools.browser import browse_webpage
+
+    agent = create_react_agent(llm, [browse_webpage])
+    result = await agent.ainvoke(
+        {"messages": [HumanMessage(content=state["result"])]},
+    )
+    # The last AI message contains the final answer
+    final_message = result["messages"][-1]
+    return {**state, "result": final_message.content}
 
 
 # Build the graph
