@@ -43,6 +43,7 @@ async def create_tables():
         await conn.run_sync(Base.metadata.create_all)
         await ensure_task_agent_fk_column(conn)
         await ensure_task_assigned_user_fk_column(conn)
+        await ensure_agent_system_prompt_column(conn)
 
     await seed_default_agents()
     await backfill_task_agent_ids()
@@ -64,7 +65,16 @@ async def ensure_task_assigned_user_fk_column(conn) -> None:
     await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tasks_assigned_user_id ON tasks (assigned_user_id)"))
 
 
+async def ensure_agent_system_prompt_column(conn) -> None:
+    table_info = await conn.execute(text("PRAGMA table_info(agents)"))
+    columns = {row[1] for row in table_info.fetchall()}
+    if "system_prompt" not in columns:
+        await conn.execute(text("ALTER TABLE agents ADD COLUMN system_prompt TEXT DEFAULT ''"))
+
+
 async def seed_default_agents() -> None:
+    from app.ai.task_analysis import load_professional_md
+
     allowed_keys = {a["key"] for a in DEFAULT_AGENTS}
 
     async with AsyncSessionLocal() as db:
@@ -79,6 +89,10 @@ async def seed_default_agents() -> None:
         # Add missing default agents
         for default_agent in DEFAULT_AGENTS:
             if default_agent["key"] in existing_agents:
+                # Backfill system_prompt if empty
+                existing_agent = existing_agents[default_agent["key"]]
+                if not existing_agent.system_prompt:
+                    existing_agent.system_prompt = load_professional_md(default_agent["key"])
                 continue
 
             db.add(
@@ -87,6 +101,7 @@ async def seed_default_agents() -> None:
                     key=default_agent["key"],
                     name=default_agent["name"],
                     description=default_agent["description"],
+                    system_prompt=load_professional_md(default_agent["key"]),
                     is_active=True,
                 )
             )

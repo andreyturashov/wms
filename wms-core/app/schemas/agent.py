@@ -7,6 +7,7 @@ class AgentBase(BaseModel):
     key: str
     name: str
     description: str = ""
+    system_prompt: str = ""
     is_active: bool = True
 
 
