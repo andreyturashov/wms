@@ -23,6 +23,7 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langgraph.graph import END, StateGraph
 from sqlalchemy import select
 
+from app.ai.manager import add_skill_to_agent, parse_skill_request, review_and_adjust
 from app.db.session import AsyncSessionLocal
 from app.models.agent import Agent
 from app.models.comment import Comment
@@ -317,6 +318,24 @@ async def handle_agent_mentions(
 
         await db.commit()
 
+    # Trigger Manager review for each agent that replied
+    for mentioned_name in mentioned_names:
+        agent = key_to_agent.get(mentioned_name.lower())
+        if not agent:
+            continue
+        if agent.key == "manager":
+            # Check for skill-addition request first
+            skill_req = parse_skill_request(comment_content)
+            if skill_req:
+                await add_skill_to_agent(skill_req[0], skill_req[1])
+            else:
+                # @Manager mentioned → review all non-manager agents
+                for other in all_agents:
+                    if other.key != "manager":
+                        await review_and_adjust(task_id, other.key)
+        else:
+            await review_and_adjust(task_id, agent.key)
+
 
 async def handle_agent_reply(
     task_id: str,
@@ -364,3 +383,7 @@ async def handle_agent_reply(
         )
         db.add(reply)
         await db.commit()
+
+    # Trigger Manager review (unless the replying agent is the Manager)
+    if agent.key != "manager":
+        await review_and_adjust(task_id, agent.key)
