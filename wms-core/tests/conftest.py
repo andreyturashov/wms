@@ -89,6 +89,13 @@ set_mention_session_factory(TestSession)
 # Force mock LLM in tests so they never hit a real Ollama server
 set_mention_llm(MockMentionLLM())
 
+# Point the manager module at the test session factory
+from app.ai.manager import MockManagerLLM, set_manager_llm
+from app.ai.manager import set_session_factory as set_manager_session_factory
+
+set_manager_session_factory(TestSession)
+set_manager_llm(MockManagerLLM())
+
 
 # ---------------------------------------------------------------------------
 # HTTP client fixture

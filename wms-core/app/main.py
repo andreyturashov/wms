@@ -35,6 +35,11 @@ DEFAULT_AGENTS = [
         "name": "Thinker",
         "description": "Analyses tasks, provides recommendations, and generates insights.",
     },
+    {
+        "key": "manager",
+        "name": "Manager",
+        "description": "Reviews conversations and adjusts other agents' system prompts.",
+    },
 ]
 
 

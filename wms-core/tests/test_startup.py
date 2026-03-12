@@ -56,7 +56,7 @@ class TestSeedDefaultAgents:
             result = await db.execute(select(Agent))
             agents = result.scalars().all()
         keys = {a.key for a in agents}
-        assert keys == {"executor", "thinker"}
+        assert keys == {"executor", "thinker", "manager"}
 
     async def test_seeds_system_prompt_from_file(self):
         """seed_default_agents populates system_prompt from Professional.md."""
@@ -104,7 +104,7 @@ class TestSeedDefaultAgents:
         async with _TestSession() as db:
             result = await db.execute(select(Agent))
             agents = result.scalars().all()
-        assert len(agents) == 2
+        assert len(agents) == 3
 
     async def test_removes_obsolete_agents(self):
         """Agents whose key is not in DEFAULT_AGENTS should be removed."""
@@ -128,7 +128,7 @@ class TestSeedDefaultAgents:
         async with _TestSession() as db:
             result = await db.execute(select(Agent))
             agents = result.scalars().all()
-        assert len(agents) == 3
+        assert len(agents) == 4
 
         # Re-run seed — obsolete agent should be removed
         await seed_default_agents()
@@ -137,8 +137,8 @@ class TestSeedDefaultAgents:
             result = await db.execute(select(Agent))
             agents = result.scalars().all()
         keys = {a.key for a in agents}
-        assert keys == {"executor", "thinker"}
-        assert len(agents) == 2
+        assert keys == {"executor", "thinker", "manager"}
+        assert len(agents) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -317,7 +317,7 @@ class TestCreateTables:
         async with _TestSession() as db:
             result = await db.execute(select(Agent))
             agents = result.scalars().all()
-        assert len(agents) == 2
+        assert len(agents) == 3
 
 
 # ---------------------------------------------------------------------------
