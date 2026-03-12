@@ -366,6 +366,7 @@ class TestBuildMentionPrompt:
             "task_priority": "high",
             "task_status": "in_progress",
             "comment_content": "@Executor please look at this",
+            "system_prompt": "",
             "result": "",
         }
         out = build_mention_prompt(state)
@@ -375,6 +376,23 @@ class TestBuildMentionPrompt:
         assert "high" in out["result"]
         assert "in_progress" in out["result"]
         assert "@Executor please look at this" in out["result"]
+
+    async def test_build_mention_prompt_with_system_prompt(self):
+        """build_mention_prompt prepends agent persona when system_prompt is set."""
+        from app.ai.agent_mention import build_mention_prompt
+
+        state = {
+            "agent_name": "Executor",
+            "task_title": "Fix bug",
+            "task_description": "Bug",
+            "task_priority": "high",
+            "task_status": "in_progress",
+            "comment_content": "@Executor help",
+            "system_prompt": "You are a hands-on teammate.",
+            "result": "",
+        }
+        out = build_mention_prompt(state)
+        assert out["result"].startswith("You are a hands-on teammate.")
 
     async def test_build_mention_prompt_no_description(self):
         """build_mention_prompt shows '(none)' when description is empty."""
@@ -387,6 +405,7 @@ class TestBuildMentionPrompt:
             "task_priority": "low",
             "task_status": "todo",
             "comment_content": "@Thinker help",
+            "system_prompt": "",
             "result": "",
         }
         out = build_mention_prompt(state)
@@ -408,6 +427,7 @@ class TestBuildMentionPrompt:
             "task_priority": "high",
             "task_status": "in_progress",
             "comment_content": "@Executor help",
+            "system_prompt": "",
             "result": (
                 "You are **Executor**\n\n"
                 "Title: Fix bug\n"

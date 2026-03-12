@@ -10,6 +10,7 @@ from app.db.base import Base
 from app.main import (
     backfill_task_agent_ids,
     create_tables,
+    ensure_agent_system_prompt_column,
     ensure_task_agent_fk_column,
     ensure_task_assigned_user_fk_column,
     seed_default_agents,
@@ -57,6 +58,46 @@ class TestSeedDefaultAgents:
         keys = {a.key for a in agents}
         assert keys == {"executor", "thinker"}
 
+    async def test_seeds_system_prompt_from_file(self):
+        """seed_default_agents populates system_prompt from Professional.md."""
+        await seed_default_agents()
+        async with _TestSession() as db:
+            result = await db.execute(select(Agent))
+            agents = {a.key: a for a in result.scalars().all()}
+        assert "Executor Agent" in agents["executor"].system_prompt
+        assert "Thinker Agent" in agents["thinker"].system_prompt
+
+    async def test_backfills_empty_system_prompt(self):
+        """Re-seeding backfills system_prompt if it was empty."""
+        # First seed
+        await seed_default_agents()
+        # Clear the system_prompt
+        async with _TestSession() as db:
+            result = await db.execute(select(Agent).where(Agent.key == "executor"))
+            agent = result.scalar_one()
+            agent.system_prompt = ""
+            await db.commit()
+        # Re-seed should backfill
+        await seed_default_agents()
+        async with _TestSession() as db:
+            result = await db.execute(select(Agent).where(Agent.key == "executor"))
+            agent = result.scalar_one()
+        assert "Executor Agent" in agent.system_prompt
+
+    async def test_does_not_overwrite_custom_prompt(self):
+        """Re-seeding should NOT overwrite a non-empty custom system_prompt."""
+        await seed_default_agents()
+        async with _TestSession() as db:
+            result = await db.execute(select(Agent).where(Agent.key == "executor"))
+            agent = result.scalar_one()
+            agent.system_prompt = "Custom prompt"
+            await db.commit()
+        await seed_default_agents()
+        async with _TestSession() as db:
+            result = await db.execute(select(Agent).where(Agent.key == "executor"))
+            agent = result.scalar_one()
+        assert agent.system_prompt == "Custom prompt"
+
     async def test_idempotent(self):
         await seed_default_agents()
         await seed_default_agents()  # second run should not duplicate
@@ -98,6 +139,43 @@ class TestSeedDefaultAgents:
         keys = {a.key for a in agents}
         assert keys == {"executor", "thinker"}
         assert len(agents) == 2
+
+
+# ---------------------------------------------------------------------------
+# ensure_agent_system_prompt_column
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureAgentSystemPromptColumn:
+    async def test_noop_when_column_exists(self):
+        """Column exists from metadata.create_all — should be a no-op."""
+        async with _engine.begin() as conn:
+            await ensure_agent_system_prompt_column(conn)
+            info = await conn.execute(text("PRAGMA table_info(agents)"))
+            cols = {row[1] for row in info.fetchall()}
+        assert "system_prompt" in cols
+
+    async def test_adds_column_when_missing(self):
+        """Recreate agents table without system_prompt, verify migration adds it."""
+        async with _engine.begin() as conn:
+            await conn.execute(text("DROP TABLE IF EXISTS agents"))
+            await conn.execute(
+                text(
+                    "CREATE TABLE agents ("
+                    "  id VARCHAR PRIMARY KEY,"
+                    "  key VARCHAR NOT NULL,"
+                    "  name VARCHAR NOT NULL,"
+                    "  description TEXT DEFAULT '',"
+                    "  is_active BOOLEAN DEFAULT 1,"
+                    "  created_at DATETIME,"
+                    "  updated_at DATETIME"
+                    ")"
+                )
+            )
+            await ensure_agent_system_prompt_column(conn)
+            info = await conn.execute(text("PRAGMA table_info(agents)"))
+            cols = {row[1] for row in info.fetchall()}
+        assert "system_prompt" in cols
 
 
 # ---------------------------------------------------------------------------

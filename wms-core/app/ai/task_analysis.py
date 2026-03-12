@@ -221,7 +221,15 @@ async def analyse_task_and_comment(
     for agent_key in AGENT_KEYS:
         logger.info("Running AI analysis for agent '%s' on task %s", agent_key, task_id)
 
-        system_prompt = load_professional_md(agent_key)
+        # Prefer DB system_prompt, fall back to file
+        async with _session_factory() as db:
+            agent = (await db.execute(select(Agent).where(Agent.key == agent_key))).scalar_one_or_none()
+
+        if not agent:
+            logger.warning("Agent '%s' not found in DB - skipping comment", agent_key)
+            continue
+
+        system_prompt = agent.system_prompt or load_professional_md(agent_key)
 
         try:
             result = await asyncio.to_thread(
@@ -243,12 +251,6 @@ async def analyse_task_and_comment(
         logger.info("Agent '%s' analysis length: %d chars", agent_key, len(ai_content))
 
         async with _session_factory() as db:
-            agent = (await db.execute(select(Agent).where(Agent.key == agent_key))).scalar_one_or_none()
-
-            if not agent:
-                logger.warning("Agent '%s' not found in DB - skipping comment", agent_key)
-                continue
-
             comment = Comment(
                 id=str(uuid.uuid4()),
                 task_id=task_id,

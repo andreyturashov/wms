@@ -111,6 +111,16 @@ class AgentAdmin(ModelView, model=Agent):
         Agent.is_active,
         Agent.created_at,
     ]
+    column_details_list = [
+        Agent.id,
+        Agent.key,
+        Agent.name,
+        Agent.description,
+        Agent.system_prompt,
+        Agent.is_active,
+        Agent.created_at,
+        Agent.updated_at,
+    ]
     column_searchable_list = [Agent.key, Agent.name]
     column_sortable_list = [Agent.key, Agent.name, Agent.is_active, Agent.created_at]
     column_default_sort = ("created_at", True)

@@ -138,12 +138,16 @@ class MentionReactionState(TypedDict):
     task_priority: str
     task_status: str
     comment_content: str
+    system_prompt: str
     result: str
 
 
 def build_mention_prompt(state: MentionReactionState) -> MentionReactionState:
     """Build the prompt for the mention-reaction LLM call (node 1)."""
+    agent_persona = state.get("system_prompt") or ""
+    persona_block = f"{agent_persona}\n\n" if agent_persona else ""
     prompt = (
+        f"{persona_block}"
         f"You are **{state['agent_name']}**, an AI assistant in a "
         f"project-management system.\n\n"
         f"A teammate mentioned you in a comment. Reply like a helpful "
@@ -296,6 +300,7 @@ async def handle_agent_mentions(
                     "task_priority": task.priority,
                     "task_status": task.status,
                     "comment_content": comment_content,
+                    "system_prompt": agent.system_prompt or "",
                     "result": "",
                 }
             )
@@ -344,6 +349,7 @@ async def handle_agent_reply(
                 "task_priority": task.priority,
                 "task_status": task.status,
                 "comment_content": comment_content,
+                "system_prompt": agent.system_prompt or "",
                 "result": "",
             }
         )

@@ -134,11 +134,13 @@ class TestAgentSchemas:
     def test_agent_base_defaults(self):
         a = AgentBase(key="k", name="N")
         assert a.description == ""
+        assert a.system_prompt == ""
         assert a.is_active is True
 
     def test_agent_create(self):
         a = AgentCreate(key="k", name="N", description="D", is_active=False)
         assert a.is_active is False
+        assert a.system_prompt == ""
 
     def test_agent_response(self):
         now = datetime.utcnow()
@@ -147,11 +149,13 @@ class TestAgentSchemas:
             key="k",
             name="N",
             description="D",
+            system_prompt="You are an agent.",
             is_active=True,
             created_at=now,
             updated_at=now,
         )
         assert a.id == "a1"
+        assert a.system_prompt == "You are an agent."
 
 
 # ---------------------------------------------------------------------------
