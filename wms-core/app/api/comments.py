@@ -45,6 +45,24 @@ async def get_comments_by_author(
     return result.scalars().all()
 
 
+@comments_router.get("/mentions", response_model=list[CommentResponse])
+async def get_comments_mentioning_me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all comments that @mention the current user (across their tasks)."""
+    pattern = f"%@{current_user.username}%"
+    query = (
+        select(Comment)
+        .join(Task, Comment.task_id == Task.id)
+        .where(Task.user_id == current_user.id, Comment.content.like(pattern))
+        .order_by(Comment.created_at.desc())
+        .options(selectinload(Comment.replies))
+    )
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
 @router.get("/{task_id}/comments", response_model=list[CommentResponse])
 async def get_task_comments(
     task_id: str,

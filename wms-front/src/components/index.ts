@@ -5,5 +5,6 @@ export { CommentSection } from './CommentSection';
 export { MentionTextarea, renderMentionContent } from './MentionTextarea';
 export { Sidebar } from './Sidebar';
 export { CommentPanel } from './CommentPanel';
+export { MentionsPanel } from './MentionsPanel';
 export { TaskPage } from './TaskPage';
 export type { AuthorSelection } from './CommentPanel';
