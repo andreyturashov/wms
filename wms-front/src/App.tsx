@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { Column, TaskModal, Sidebar, CommentPanel, TaskPage } from './components';
+import { Column, TaskModal, Sidebar, CommentPanel, MentionsPanel, TaskPage } from './components';
 import type { AuthorSelection } from './components';
 import { tasksApi, authApi, agentsApi, usersApi } from './api';
 import type { Task, CreateTaskRequest, LoginRequest, RegisterRequest, Agent, User } from './types';
@@ -18,6 +18,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [authorSelection, setAuthorSelection] = useState<AuthorSelection>(null);
+  const [showBoard, setShowBoard] = useState(false);
 
   const loadTasks = useCallback(async () => {
     const data = await tasksApi.getAll();
@@ -198,9 +199,20 @@ function App() {
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1 text-sm mb-4">
           <button
-            onClick={() => setAuthorSelection(null)}
+            onClick={() => { setShowBoard(false); setAuthorSelection(null); }}
             className={`px-2 py-1 rounded-md transition-colors ${
-              !authorSelection
+              !showBoard && !authorSelection
+                ? 'text-gray-800 font-semibold'
+                : 'text-blue-600 hover:text-blue-800 hover:underline'
+            }`}
+          >
+            Mentions
+          </button>
+          <span className="text-gray-300">|</span>
+          <button
+            onClick={() => { setShowBoard(true); setAuthorSelection(null); }}
+            className={`px-2 py-1 rounded-md transition-colors ${
+              showBoard && !authorSelection
                 ? 'text-gray-800 font-semibold'
                 : 'text-blue-600 hover:text-blue-800 hover:underline'
             }`}
@@ -217,10 +229,10 @@ function App() {
           )}
         </nav>
         <div className="flex gap-4">
-          <Sidebar users={users} agents={agents} selection={authorSelection} onSelect={setAuthorSelection} />
+          <Sidebar users={users} agents={agents} selection={authorSelection} onSelect={(s) => { setAuthorSelection(s); if (s) setShowBoard(false); }} />
           {authorSelection ? (
             <CommentPanel selection={authorSelection} agents={agents} users={users} currentUser={currentUser} onTaskCreated={(task) => setTasks((prev) => [...prev, task])} />
-          ) : (
+          ) : showBoard ? (
             <div className="flex-1 flex gap-4 overflow-x-auto pb-4">
             <Column
               title="To Do"
@@ -256,6 +268,8 @@ function App() {
               onDrop={handleStatusChange}
             />
             </div>
+          ) : (
+            <MentionsPanel agents={agents} users={users} currentUser={currentUser} />
           )}
         </div>
       </main>

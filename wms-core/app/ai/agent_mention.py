@@ -28,6 +28,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.agent import Agent
 from app.models.comment import Comment
 from app.models.task import Task
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +155,8 @@ def build_mention_prompt(state: MentionReactionState) -> MentionReactionState:
         f"A teammate mentioned you in a comment. Reply like a helpful "
         f"colleague chatting in a thread — short and natural (1-3 sentences). "
         f"Do NOT include headers, bullet lists, or task summaries. "
+        f"Do NOT start your reply with any @mentions (like @username or @AgentName) — "
+        f"the system adds those automatically. "
         f"Just answer the question or respond to what they said.\n\n"
         f"**IMPORTANT — Tool use rules:**\n"
         f"- You have a `browse_webpage` tool. You MUST call it whenever the "
@@ -279,6 +282,16 @@ async def handle_agent_mentions(
         if not task:
             return
 
+        # Load the original comment to get the author's username
+        comment_result = await db.execute(select(Comment).where(Comment.id == comment_id))
+        original_comment = comment_result.scalar_one_or_none()
+        requestor_name = ""
+        if original_comment and original_comment.user_id:
+            user_result = await db.execute(select(User).where(User.id == original_comment.user_id))
+            user = user_result.scalar_one_or_none()
+            if user:
+                requestor_name = user.username
+
         # Load all active agents and match by key (case-insensitive).
         # The regex captures a single word after '@', so we match against the
         # agent's `key` field (e.g. "executor", "thinker") rather than the
@@ -306,10 +319,11 @@ async def handle_agent_mentions(
                 }
             )
 
+            mention_prefix = f"@{requestor_name} " if requestor_name else ""
             reply = Comment(
                 id=str(uuid.uuid4()),
                 task_id=task_id,
-                content=result["result"],
+                content=f"{mention_prefix}{result['result']}",
                 user_id=None,
                 agent_id=agent.id,
                 parent_id=comment_id,
@@ -354,6 +368,16 @@ async def handle_agent_reply(
         if not task:
             return
 
+        # Load the original comment to get the author's username
+        comment_result = await db.execute(select(Comment).where(Comment.id == comment_id))
+        original_comment = comment_result.scalar_one_or_none()
+        requestor_name = ""
+        if original_comment and original_comment.user_id:
+            user_result = await db.execute(select(User).where(User.id == original_comment.user_id))
+            user = user_result.scalar_one_or_none()
+            if user:
+                requestor_name = user.username
+
         # Load the parent agent
         agent_result = await db.execute(select(Agent).where(Agent.id == parent_agent_id, Agent.is_active.is_(True)))
         agent = agent_result.scalar_one_or_none()
@@ -373,10 +397,11 @@ async def handle_agent_reply(
             }
         )
 
+        mention_prefix = f"@{requestor_name} " if requestor_name else ""
         reply = Comment(
             id=str(uuid.uuid4()),
             task_id=task_id,
-            content=result["result"],
+            content=f"{mention_prefix}{result['result']}",
             user_id=None,
             agent_id=agent.id,
             parent_id=comment_id,

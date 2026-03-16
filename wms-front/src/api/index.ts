@@ -173,6 +173,12 @@ export const commentsApi = {
     });
   },
 
+  getMentioningMe: async (): Promise<Comment[]> => {
+    return request<Comment[]>(`${API_BASE_URL}/comments/mentions`, {
+      headers: getHeaders(),
+    });
+  },
+
   create: async (taskId: string, data: CreateCommentRequest): Promise<Comment> => {
     return request<Comment>(`${API_BASE_URL}/tasks/${taskId}/comments`, {
       method: 'POST',
